@@ -82,7 +82,6 @@ Happy coding! 🎉🚀
 - Replace placeholder text (e.g., `[Your Name]`, `[your-username]`, `[your-repo-name]`) with your actual information.
 - Commit these markdown files to your GitHub repository.
 - Begin populating the detailed documentation and engage your community.
-```
 
 ## High-Performance Windows Service Framework (Kernel/User Shared Memory & RIO)
 
