@@ -1,0 +1,18 @@
+// bmobileCoreService.idl : IDL source for bmobileCoreService
+//
+
+// This file will be processed by the MIDL tool to
+// produce the type library (bmobileCoreService.tlb) and marshalling code.
+
+import "oaidl.idl";
+import "ocidl.idl";
+
+[
+	uuid(c274b8ec-5a50-4862-af35-417565845916),
+	version(1.0),
+]
+library bmobileCoreServiceLib
+{
+	importlib("stdole2.tlb");
+};
+
