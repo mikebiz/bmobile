@@ -1,0 +1,14 @@
+/****** Object:  Table [dbo].[utServerType]    Script Date: 08/27/2008 14:35:24 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[utServerType](
+	[ID] [int] NOT NULL DEFAULT ((0)),
+	[Name] [nvarchar](50) NOT NULL DEFAULT ('Name'),
+ CONSTRAINT [PK_utServerType] PRIMARY KEY CLUSTERED 
+(
+	[ID] ASC
+)WITH (PAD_INDEX  = OFF, STATISTICS_NORECOMPUTE  = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS  = ON, ALLOW_PAGE_LOCKS  = ON) ON [PRIMARY]
+) ON [PRIMARY]
+GO

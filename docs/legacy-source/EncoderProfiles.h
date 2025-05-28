@@ -1,0 +1,95 @@
+#pragma once
+
+#ifdef BLXWARE_EXPORTS
+#define BLXWARE_API __declspec(dllexport)
+#define BLXWARE_LINKAGE extern
+#else
+#define BLXWARE_API __declspec(dllimport)
+#define BLXWARE_LINKAGE extern 
+#endif
+
+#include "BlxCommonLib.h"
+
+#define MAX_PATH_LENGTH 256
+
+enum STREAM_DESTINATION
+{
+	SD_ASF_WRITER = 0
+	, SD_UPD_PUSH = 1
+};
+
+typedef struct _tag_ENCODER_PROFILE
+{
+	DWORD		dwSizeOfThisStruct;
+	DWORD		dwVersionOfThisStruct;
+	TCHAR		szMP3PropPath[ MAX_PATH_LENGTH ];
+	TCHAR		szScalerPropPath[ MAX_PATH_LENGTH ];
+	TCHAR		szProfilePath[ MAX_PATH_LENGTH ];
+	TCHAR		szInputFilePath[ MAX_PATH_LENGTH ];
+	TCHAR		szOutputFilePath[ MAX_PATH_LENGTH ];
+	INT			iSource;
+	INT			iVideoCodec;
+	INT			iAudioCodec;
+	INT			iCrossbar;
+	BOOL		bDeinterlace;
+	BOOL		bMutePreview;
+	BOOL		bDisableVideoPreview;
+	BOOL		bOutputGraph;
+	BOOL		bOutputFile;
+	BOOL		bSaveMP3Prop;
+	BOOL		bSaveScalerProp;
+	BOOL		bRefTimeMon;
+	BOOL		bMod16Fix;
+	INT			iSyncTolerance;
+	BOOL		bRestartTime;
+	INT			iRestartTimeHour;
+	INT			iRestartTimeMinute;
+	BOOL		bVideoOnly;
+	TCHAR		szNetwork[ MAX_PATH_LENGTH ];
+	TCHAR		szPublishingPoint[ MAX_PATH_LENGTH ];
+	STREAM_DESTINATION	streamDestination;
+	TCHAR		szUdpPushAddress[ MAX_PATH_LENGTH ];
+	DWORD		dwUdpPushPort;
+	ULONGLONG	qwUdpSourceId;
+	TCHAR		szSourceMoniker[ MAX_PATH_LENGTH ];
+	TCHAR		szSourceAudioMoniker[ MAX_PATH_LENGTH ];
+	TCHAR		szMACAddr[ MAX_PATH_LENGTH ];
+} ENCODER_PROFILE, *PENCODER_PROFILE;
+
+
+#define ENCODER_PROFILE_CURRENT	0x0001001
+
+enum ENCODER_PROFILES 
+{
+	EP_1080i_DS			= 0
+	, EP_NTSC			= 1
+	, EP_720p_DS		= 2
+	, EP_720p			= 3
+	, X264_EP_1080i_DS	= 4
+	, X264_EP_NTSC		= 5
+	, X264_EP_720p_DS	= 6
+	, X264_EP_720p		= 7
+	, EP_ATI_NTSC		= 8
+	, EP_1080i			= 9
+	, EP_NTSC_DS		= 10
+	, EP_NTSC_DS_UDP	= 11
+	, EP_NTSC_UDP		= 12
+	, EP_WEB_CAM		= 13
+	, EP_MOBILE_PHONE	= 14
+};
+
+BLXWARE_LINKAGE BLXWARE_API VOID  BuildProfile1080iDS( ENCODER_PROFILE& ep );
+BLXWARE_LINKAGE BLXWARE_API VOID  BuildProfileNTSC( ENCODER_PROFILE& ep );
+BLXWARE_LINKAGE BLXWARE_API VOID  BuildProfileNTSCDS( ENCODER_PROFILE& ep );
+BLXWARE_LINKAGE BLXWARE_API VOID  BuildProfile720pDS( ENCODER_PROFILE& ep );
+BLXWARE_LINKAGE BLXWARE_API VOID  BuildProfile720p( ENCODER_PROFILE& ep );
+BLXWARE_LINKAGE BLXWARE_API VOID  BuildProfileX2641080iDS( ENCODER_PROFILE& ep );
+BLXWARE_LINKAGE BLXWARE_API VOID  BuildProfileX264NTSC( ENCODER_PROFILE& ep );
+BLXWARE_LINKAGE BLXWARE_API VOID  BuildProfileX264720pDS( ENCODER_PROFILE& ep );
+BLXWARE_LINKAGE BLXWARE_API VOID  BuildProfileX264720p( ENCODER_PROFILE& ep );
+BLXWARE_LINKAGE BLXWARE_API VOID  BuildProfileATINTSC( ENCODER_PROFILE& ep );
+BLXWARE_LINKAGE BLXWARE_API VOID  BuildProfile1080i( ENCODER_PROFILE& ep );
+BLXWARE_LINKAGE BLXWARE_API VOID  BuildProfileNTSCDS_UDP( ENCODER_PROFILE& ep );
+BLXWARE_LINKAGE BLXWARE_API VOID  BuildProfileNTSC_UDP( ENCODER_PROFILE& ep );
+BLXWARE_LINKAGE BLXWARE_API VOID  BuildProfileWebCam( ENCODER_PROFILE& ep );
+BLXWARE_LINKAGE BLXWARE_API VOID  BuildProfileMobilePhone( ENCODER_PROFILE& ep );

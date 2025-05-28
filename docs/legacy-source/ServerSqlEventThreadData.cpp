@@ -1,0 +1,324 @@
+#include "ServerSqlEventThreadData.h"
+
+BLXWARE_API HANDLE CServerSqlEventThreadData::m_hHeap = NULL;
+BLXWARE_API LONG CServerSqlEventThreadData::m_uNumAllocsInHeap = 0;
+BLXWARE_API CComCriticalSection* CServerSqlEventThreadData::m_csLock = NULL;
+
+CServerSqlEventThreadData::CServerSqlEventThreadData()
+: m_iPktCnt( 0 )
+, m_uiHeapPriority( 0 )
+{
+    m_pDataBuf = NULL;
+    Internal = 0;
+    InternalHigh = 0;
+    Offset = 0;
+    OffsetHigh = 0;
+    hEvent = WSACreateEvent();
+    internalNew( 
+        MAX_IP_HEADER
+        , MAX_UDP_HEADER
+        , MAX_EVENT_HEADER
+        , MAX_EVENT_PACKET_HEADER
+        , MAX_PACKET_DATA_BLOB
+        );
+    InitializeQueue();
+}
+
+CServerSqlEventThreadData::CServerSqlEventThreadData( UINT32 BufferLength )
+: m_iPktCnt( 0 )
+, m_uiHeapPriority( 0 )
+{
+    m_pDataBuf = NULL;
+    Internal = 0;
+    InternalHigh = 0;
+    Offset = 0;
+    OffsetHigh = 0;
+    hEvent = WSACreateEvent();
+    initializeBuffer( BufferLength );
+
+    InitializeQueue();
+}
+
+CServerSqlEventThreadData::CServerSqlEventThreadData( UINT32 BufferLength, DWORD dwN1, DWORD dwN2 )
+: m_iPktCnt( 0 )
+, m_uiHeapPriority( 0 )
+{
+    m_pDataBuf = NULL;
+    Internal = 0;
+    InternalHigh = 0;
+    Offset = 0;
+    OffsetHigh = 0;
+    hEvent = WSACreateEvent();
+    initializeBuffer( BufferLength );
+
+    InitializeQueue();
+}
+CServerSqlEventThreadData::CServerSqlEventThreadData( USHORT BufferLength )
+: m_pContext(NULL)
+, m_uiHeapPriority( 0 )
+
+{
+#ifdef _VISTA_
+    m_pWorkItem = NULL;
+#endif
+    m_pDataBuf = NULL;
+    Internal = 0;
+    InternalHigh = 0;
+    Offset = 0;
+    OffsetHigh = 0;
+    hEvent = WSACreateEvent();
+    initializeBuffer( BufferLength );
+
+    InitializeQueue();
+}
+
+CServerSqlEventThreadData::CServerSqlEventThreadData( USHORT BufferCount, DWORD Flag )
+: m_pContext(NULL)
+, m_uiHeapPriority( 0 )
+{
+#ifdef _VISTA_
+    m_pWorkItem = NULL;
+#endif
+    m_pDataBuf = NULL;
+    m_pDataBuf = reinterpret_cast< WSABUF* >( HeapAlloc( CServerSqlEventThreadData::m_hHeap, HEAP_ZERO_MEMORY /*| HEAP_NO_SERIALIZE*/, ( sizeof( WSABUF ) * BufferCount ) ) );
+    //	m_pDataBuf = reinterpret_cast< WSABUF* >( new BYTE[ sizeof( WSABUF ) * BufferCount ] );
+    CServerSqlEventThreadData::increment_NumAllocsInHeap();
+
+    for( INT8 i = 0 ; i < BufferCount ; i++ ) //mxb - 06/30/2009
+    {
+        m_pDataBuf[ i ].buf = NULL;
+        m_pDataBuf[ i ].len = 0;
+        //CBaseThreadDataSync::increment_NumAllocsInHeap();
+    }
+    InitializeQueue();
+}
+
+CServerSqlEventThreadData::CServerSqlEventThreadData( PIP_HEADER pIpHeader
+                                                     , PUDP_HEADER pUdpHeader
+                                                     , PEVENT_HEADER pEventHeader
+                                                     , PEVENT_PACKET_HEADER pEventPacketHeader
+                                                     , PPACKET_DATA_BLOB pPacketDataBlob
+                                                     )
+                                                     : m_pContext(NULL)
+                                                     , m_uiHeapPriority( 0 )
+{
+#ifdef _VISTA_
+    m_pWorkItem = NULL;
+#endif
+
+    m_pDataBuf = NULL;
+    Internal = 0;
+    InternalHigh = 0;
+    Offset = 0;
+    OffsetHigh = 0;
+    hEvent = WSACreateEvent();
+    internalRefNew(
+        pIpHeader
+        , pUdpHeader
+        , pEventHeader
+        , pEventPacketHeader
+        , pPacketDataBlob
+        );
+    InitializeQueue();
+}
+
+CServerSqlEventThreadData::~CServerSqlEventThreadData()
+{
+#ifdef _VISTA_
+    if( NULL != m_pWorkItem )
+    {
+        WaitForThreadpoolWorkCallbacks(
+            m_pWorkItem
+            , FALSE
+            );
+        CloseThreadpoolWork( m_pWorkItem );
+        m_pWorkItem = NULL;
+    }
+#endif
+    if( INVALID_HANDLE_VALUE != this->hEvent )
+    {
+        CloseHandle( this->hEvent );
+    }
+
+    if( 0 < m_iNumBuffers )
+    {
+        for( SHORT i = 0 ; i < m_iNumBuffers ; i++ )
+        {
+            if( HeapFree( 
+                CServerSqlEventThreadData::m_hHeap
+                , 0 //0 //HEAP_NO_SERIALIZE
+                , m_pDataBuf[ i ].buf 
+                )
+                )
+            {
+                CServerSqlEventThreadData::decrement_NumAllocsInHeap();
+            }
+            else
+            {
+                OutputDebugStringf( L"\n~CServerSqlEventThreadData HeapFree of buf[%d] failed", i );
+            }
+        }
+        if(	HeapFree( 
+            CServerSqlEventThreadData::m_hHeap
+            , 0 //HEAP_NO_SERIALIZE
+            , m_pDataBuf 
+            )
+            )
+        {
+            CServerSqlEventThreadData::decrement_NumAllocsInHeap();
+        }
+        else
+        {
+            OutputDebugString( L"\n~CServerSqlEventThreadData HeapFree of wsabuf failed" );
+        }
+    }
+    //_CrtDumpMemoryLeaks();
+    //		OutputDebugString( L"\n~CBaseThreadDataSync end ----------------------------------------------" );
+}
+
+WSABUF* CServerSqlEventThreadData::get_WSABUF( )
+{
+    return m_pDataBuf;
+}
+
+PIP_HEADER CServerSqlEventThreadData::get_IpHeader( )
+{
+    return reinterpret_cast< PIP_HEADER >(
+        m_pDataBuf[ 0 ].buf 
+        );
+}
+PUDP_HEADER CServerSqlEventThreadData::get_UdpHeader( )
+{
+    return reinterpret_cast< PUDP_HEADER >(
+        m_pDataBuf[ 0 ].buf 
+        + MAX_IP_HEADER
+        );
+}
+PEVENT_HEADER CServerSqlEventThreadData::get_EventHeader( )
+{
+    return reinterpret_cast< PEVENT_HEADER >(
+        m_pDataBuf[ 0 ].buf 
+        + MAX_IP_HEADER
+        + MAX_UDP_HEADER
+        );
+}
+PEVENT_PACKET_HEADER CServerSqlEventThreadData::get_EventPacketHeader( )
+{
+    return reinterpret_cast< PEVENT_PACKET_HEADER >(
+        m_pDataBuf[ 0 ].buf 
+        + MAX_IP_HEADER
+        + MAX_UDP_HEADER
+        + MAX_EVENT_HEADER
+        );
+}
+PPACKET_DATA_BLOB CServerSqlEventThreadData::get_PacketDataBlob( )
+{
+    return reinterpret_cast< PPACKET_DATA_BLOB >(
+        m_pDataBuf[ 0 ].buf 
+        + MAX_IP_HEADER
+        + MAX_UDP_HEADER
+        + MAX_EVENT_HEADER
+        + MAX_EVENT_PACKET_HEADER
+        );
+}
+
+VOID CServerSqlEventThreadData::ReallocBuffer( USHORT usNewSize )
+{
+    reallocBuffer( usNewSize );
+    return;
+}
+VOID CServerSqlEventThreadData::InitializeQueue()
+{
+    DWORD propid = 0;
+    m_propidarray[propid] = PROPID_M_BODY;
+    m_propvararray[propid].vt = VT_VECTOR | VT_UI1;
+    m_propvararray[propid].caub.pElems = (LPBYTE)&m_sqlTriggerEvent;
+    m_propvararray[propid].caub.cElems = MAX_SQL_SERVER_TRIGGER_EVENT;
+
+    ++propid;
+    m_propidarray[propid] = PROPID_M_BODY_SIZE;
+    m_propvararray[propid].vt = VT_NULL;
+
+    m_msgprops.cProp = propid;
+    m_msgprops.aPropID = m_propidarray;
+    m_msgprops.aPropVar = m_propvararray;
+    m_msgprops.aStatus = m_status;
+
+}
+
+VOID CServerSqlEventThreadData::reallocBuffer( UINT32 length )
+{
+    m_pDataBuf->len = length;
+
+    m_pDataBuf->buf = reinterpret_cast< PCHAR >( HeapReAlloc( CServerSqlEventThreadData::m_hHeap, HEAP_ZERO_MEMORY, m_pDataBuf->buf , length ) );
+
+    return;
+}
+
+inline VOID CServerSqlEventThreadData::internalRefNew( 
+    PIP_HEADER pIpHeader
+    , PUDP_HEADER pUdpHeader
+    , PEVENT_HEADER pEventHeader
+    , PEVENT_PACKET_HEADER pEventPacketHeader
+    , PPACKET_DATA_BLOB pPacketDataBlob
+    )
+{
+    m_pDataBuf = reinterpret_cast< WSABUF* >( HeapAlloc( CServerSqlEventThreadData::m_hHeap, HEAP_ZERO_MEMORY /*| HEAP_NO_SERIALIZE*/, sizeof( WSABUF ) * 5 ) );
+    CServerSqlEventThreadData::increment_NumAllocsInHeap();
+
+    m_pDataBuf[ PHS_IP_HEADER ].len = MAX_IP_HEADER;
+    m_pDataBuf[ PHS_IP_HEADER ].buf = reinterpret_cast< PCHAR >( pIpHeader );
+    m_pDataBuf[ PHS_UDP_HEADER ].len = MAX_UDP_HEADER;
+    m_pDataBuf[ PHS_UDP_HEADER ].buf = reinterpret_cast< PCHAR >( pUdpHeader );
+    m_pDataBuf[ PHS_EVENT_HEADER ].len = MAX_EVENT_HEADER;
+    m_pDataBuf[ PHS_EVENT_HEADER ].buf = reinterpret_cast< PCHAR >( pEventHeader );
+    m_pDataBuf[ PHS_EVENT_PACKET_HEADER ].len = MAX_EVENT_PACKET_HEADER;
+    m_pDataBuf[ PHS_EVENT_PACKET_HEADER ].buf = reinterpret_cast< PCHAR >( pEventPacketHeader );
+    m_pDataBuf[ PHS_PACKET_DATA_BLOB ].len = pEventPacketHeader->dataBlobSize;
+    m_pDataBuf[ PHS_PACKET_DATA_BLOB ].buf = reinterpret_cast< PCHAR >( pPacketDataBlob );
+
+    m_iNumBuffers = 0;
+}
+
+VOID CServerSqlEventThreadData::internalNew( 
+    UINT32 BufferLength0
+    , UINT32 BufferLength1
+    , UINT32 BufferLength2
+    , UINT32 BufferLength3
+    , UINT32 BufferLength4
+    )
+{
+    m_pDataBuf = reinterpret_cast< WSABUF* >( HeapAlloc( CServerSqlEventThreadData::m_hHeap, HEAP_ZERO_MEMORY /*| HEAP_NO_SERIALIZE*/, sizeof( WSABUF ) * 5 ) );
+    CServerSqlEventThreadData::increment_NumAllocsInHeap();
+
+    initializeBuffer( BufferLength0, 0 );
+    initializeBuffer( BufferLength1, 1 );
+    initializeBuffer( BufferLength2, 2 );
+    initializeBuffer( BufferLength3, 3 );
+    initializeBuffer( BufferLength4, 4 );
+    m_iNumBuffers = 5;
+};
+
+VOID CServerSqlEventThreadData::initializeBuffer( UINT32 length, SHORT iteration )
+{
+    m_pDataBuf[ iteration ].len = length;
+
+    m_pDataBuf[ iteration ].buf = reinterpret_cast< PCHAR >( HeapAlloc( CServerSqlEventThreadData::m_hHeap, HEAP_ZERO_MEMORY /*| HEAP_NO_SERIALIZE*/, length ) );
+    CServerSqlEventThreadData::increment_NumAllocsInHeap();
+
+    m_iNumBuffers = 1;
+    return;
+}
+
+VOID CServerSqlEventThreadData::initializeBuffer( UINT32 length )
+{
+    m_pDataBuf = reinterpret_cast< WSABUF* >( HeapAlloc( CServerSqlEventThreadData::m_hHeap, HEAP_ZERO_MEMORY /*| HEAP_NO_SERIALIZE*/, sizeof( WSABUF ) ) );
+    CServerSqlEventThreadData::increment_NumAllocsInHeap();
+
+    m_pDataBuf->len = length;
+    m_pDataBuf->buf = reinterpret_cast< PCHAR >( HeapAlloc( CServerSqlEventThreadData::m_hHeap, HEAP_ZERO_MEMORY /*| HEAP_NO_SERIALIZE*/, length ) );
+    CServerSqlEventThreadData::increment_NumAllocsInHeap();
+
+    m_iNumBuffers = 1;
+    return;
+};
