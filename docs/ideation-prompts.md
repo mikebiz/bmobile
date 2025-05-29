@@ -302,3 +302,105 @@ Let me know the answers (and push / paste the first file set). Then we’ll jump
 
 ___
 
+*Answer to Questions*
+> **(1)** I would like to keep the VS Solution.  I may eventually migrate to CMake but don't want that complexity now.  **(2)**  I want to stick with (RIO/IOCP/Windows Threadpool as it will provide best performance on Windows.  I'm not interested in platform portability at this time.  **(3)** I would like to continue with MSMQ unless there is a more up-to-date service on Windows Server. **(4)**  My first and primary goal is to get the redesign completed first before anything else.  I think this mean digging into the CommonLib and the various exe and dll's to understand how they should be segmented in to modules and layered into the solution.  Does this make sense?
+
+*Response*
+___
+Got it — we’ll retire every **“Blx”/“blx::”** symbol and adopt **“Bmobile”/“bmobile::”** instead.
+Here’s how we’ll weave that change into the refactor plan without derailing momentum.
+
+---
+
+## 1 Global renaming strategy
+
+| Task                                                                 | Tool / approach                                                                                                                                                      | Notes                                                                                                              |
+| -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| **1.1 Inventory**                                                    | `ripgrep -n "blx::\|Blx"` (or VS “Find in Files”)                                                                                                                    | Get an exact count of identifiers, macro names, project names, resources, and registry keys that start with *Blx*. |
+| **1.2 Mechanical rename in C++**                                     | *Phase-by-phase*, using Clang-Tidy’s `modernize-rename-namespace`, or VS “Rename Symbol” when we extract a file to the new libs.                                     | Do it **as we move files** into the new static libs (bmobileUtil, etc.) so merges stay small and testable.         |
+| **1.3 Project / DLL names**                                          | In VS *Property → General → Target Name* change `BlxRuntime` → `BmobileRuntime`, etc.                                                                                | No code touches; same renaming commit as the first code move so CI still passes.                                   |
+| **1.4 Legacy COM/registry strings**                                  | For MSMQ queue names or registry keys that start “Blx…”, map them in one compatibility header: `constexpr std::wstring_view LEGACY_QUEUE = L"Blx…";` → new constant. | Keeps wire compatibility while code switches to `Bmobile*` names.                                                  |
+| **1.5 Transitional typedef (optional)**                              | \`\`\`cpp                                                                                                                                                            |                                                                                                                    |
+| namespace bmobile { /\* new code \*/ }                               |                                                                                                                                                                      |                                                                                                                    |
+| namespace blx = bmobile;   // temporary, delete once all files moved |                                                                                                                                                                      |                                                                                                                    | Gives us wiggle room during the cut-over; remove by Phase 3. |
+
+---
+
+## 2 Updated solution & library layout
+
+```
+
+Bmobile.sln
+│
+├─ BmobileRuntime      (EXE · Windows-service host)
+├─ BmobileMgmtAPI      (DLL · IPC/MSMQ façade)
+│
+├─ bmobileUtil         (LIB · fmt/spdlog, time, json, helpers)
+├─ bmobileCoreRouting  (LIB · pure C++20 domain code)
+├─ bmobileNetRIO       (LIB · RIO/IOCP adapters + thread-pool)
+├─ bmobileDataAccess   (LIB · MSMQ + SQL/ODBC glue)
+└─ tests               (GoogleTest)
+```
+
+*Filenames*: when we move `BlxSmartHandle.h` into **bmobileUtil**, rename the file to `SmartHandle.hpp` (no prefix).  
+*Namespaces*: top of each new file starts with
+
+```cpp
+export module bmobile.util;          // once we switch to modules
+namespace bmobile { … }
+```
+
+---
+
+## 3 Refactor flow with renaming baked in
+
+| Stage      | File action                                                                                                                      | Rename action                         | Test action                      |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- | -------------------------------- |
+| **Day 1**  | Copy `Guid.*` → `libs\bmobileUtil\Guid.hpp/.cpp`                                                                                 | `namespace bmobile` + adjust includes | Add `guid_tests.cpp` to `tests`. |
+| **Day 2**  | Copy `SmartHandle.*` → `bmobileUtil`                                                                                             | Same                                  | Add unit tests.                  |
+| **Day 3**  | Move `Timer.*`, `StringUtil.*`                                                                                                   | Same                                  | Tests.                           |
+| **Week 1** | When all util headers moved, **delete** old versions from legacy project; commit = “Extract util + rename Blx→Bmobile (part 1)”. |                                       |                                  |
+| **Week 2** | Begin `bmobileCoreRouting` extraction; each move also flips namespace.                                                           |                                       |                                  |
+
+We’ll keep PRs ≤ 400 LOC so reviewers (and you) can sanity-check every rename.
+
+---
+
+## 4 Automation aids
+
+* **Clang-Tidy** command to run in the `libs\` subtree only:
+
+  ```bash
+  clang-tidy -fix -checks=modernize-rename-namespace \
+      -config="{RenameNamespace: {OldNamespace: 'blx', NewNamespace: 'bmobile'}}" \
+      -- <compile_commands.json>
+  ```
+* **CI gate**: add a GitHub Actions step that fails if `ripgrep -n blx::` finds anything in non-legacy directories after Phase 2.
+* **Formatting**: updated `.clang-format` with `NamespaceIndentation: All` so the new nested namespaces stay tidy.
+
+---
+
+## 5 Immediate next steps
+
+1. **Create the new static-library project “bmobileUtil”** in VS, empty for now.
+2. **Copy `Guid.h/.cpp` into it**, rename to `Guid.hpp/.cpp`, change the namespace to `bmobile`, update `#pragma once` (or keep).
+3. **Add GoogleTest target**, write a quick equality/parse test for `Guid`.
+4. **Commit** as `feat(util): start bmobileUtil, migrate Guid, rename namespace`.
+5. **Push & ping me** with the code snippet (or ZIP that subset). I’ll:
+
+   * refactor it to idiomatic C++20 (use `std::array<std::byte, 16>`, `std::expected<std::string, GuidError>`, etc.),
+   * supply the matching unit test,
+   * show how to apply `clang-tidy` for the next files.
+
+With that template locked in, every subsequent move + rename becomes mechanical.
+
+---
+
+### Quick confirmation
+
+*Does the above renaming workflow and library naming scheme look correct?*
+If yes, drop the first header when you’re ready, and we’ll start coding.
+
+
+___
+
