@@ -9,7 +9,7 @@ As we begin the journey, I want to set some initial guidance to help develop a b
 * Embracing Modern C++ Safely - Lakow
 * Effective Modern C++ - Meyers
 * C++ Coding Standards - Sutter and Alexandrescu
-* The C++ Standard Library - Josuttis
+* The C++ Standard Library - Josuttis 
 * C++ Templates - Josuttis
 * Windows via C/C++ 5th Edition - Richter
 * Functional Programming in C++ - Cukic
