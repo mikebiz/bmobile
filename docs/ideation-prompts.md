@@ -179,6 +179,71 @@ design of the modules and overall service by developing the strategy on what ser
 - Review the header "Service Modules" above and begin to work through the ideation of how to modularize the existing service design.  I would like to use some concept  like Hexagonal Architecture
 - All design artifacts should be developed using PlantUML so that it can be saved and currated in the github repo
 
+### Legacy Project Breakdown
+1. BlxContentService
+    - Headers
+        - BlxBuffer.hpp
+        - BlxPqBuffer.hpp
+        - GenerateNwEvents.hpp
+        - ServerContext.h
+        - ServerManagementHandler.hpp
+        - ServerNetwork.h
+    - Source
+        - BlxContentService.cpp
+        - ServerNetwork.cpp
+2. BlxContentServiceData
+    - Headers
+        - BlxContentServiceData.h
+        - Management.h
+        - ManagementMs.h
+        - PublishingPointDestinations.h
+        - PublishingPointDestinationMs.h
+        - PublishingPointSource.h
+        - PublishingPointSourceMs.h
+        - Utilities.h
+    - Source
+        - BlxContentServiceData.cpp
+        - Management.cpp
+        - ManagementMs.cpp
+        - PublishingPointDestinations.cpp
+        - PublishingPointDestinationMs.cpp
+        - PublishingPointSource.cpp
+        - PublishingPointSourceMs.cpp
+        - Utilities.cpp
+3. BlxSqlMsmqBridge
+    - Headers
+        - BlxSqlMsmqBridge.h
+        - xphelper.h
+    - Source
+        - BlxSqlMsmqBridge.cpp
+        - BlxSqlTriggerEvent.cpp
+        - xphelper.cpp
+4. CommonLib : This project will require the most redesign and refactoring.  There are many different concepts in it that should be pulled out and into  
+                different modules.  This will require most of the work potentially and will require many prompts and interactions to reconcile.
+
+
+#### BlxContentService
+The Windows service built using ATL.  It is designed to start and host all of the key modules or components that are used to solve the routing business problem.
+
+#### BlxContentServiceData
+The data abstraction layer.  In this version, C++/CLI was used with ADO.Net to communicate with the MS Sql DB.  However, in the refactor version, \
+I want to use ODBC and native C++ as discussed in the ODBC C++ wrapper discussion.
+
+#### BlxSqlMsmqBridge
+To enable guaranteed delivery of updates to the Publishing Point, Publisher, and Subscriber tables, a shim was created as an extended stored proceedure (xproc) \
+that was loaded by SQL Server and was able to push updates to MSMQ under the same DTC as the update.  Going forward, Microsoft has removed support for xprocs \
+so we'll have to discover a new way of doing this.  However, I'd still like to continue the use of MSMQ.
+
+#### CommonLib
+This library was a catchall for everything else.  There are so many different concepts and module candidates in this one library and it will require the \
+most work to understand and refactor or redesign.  Because there were items shared between the server and the clients (this project is just focused on the server) \
+all the concepts (e.g., audio, video, all constants, etc.) were placed in this one file (under alot of pressure at the time to complete).  As a key goal for \
+this project, we must refactor unrelated items into their own modules.
+
+One of the key deliverable we must achieve first is the agreement of the different logical modules that is represented by all of this code.  The resulting \
+logical modules should then be candidates to forward engineer into physical modules which will then lead to the creation of the layered deployment diagram \
+in PlantUML.  These modules will be used to create the interface and implementation in C++ modules and packaged in DLLs that will be loaded by the service \
+at runtime.
 
 
 
