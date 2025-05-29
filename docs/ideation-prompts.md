@@ -52,7 +52,9 @@ A Publishing Point can contain 1 or more publishers and 1 or more subscribers.  
 
 The functionality of the service, at a high-level, is pretty simple; it ingests network packets, determines what publishing point they are destined to, pulls the list of subscribers for the publishing point from an in-memory routing table, and then pushes the packets to them.  For the most part, the network packets are opaque to the server with the exception being the first section or bytes of the packet.
 
+
 '''cpp
+
 typedef struct _IPHDR 
 {
     UCHAR				ip_verlen;
