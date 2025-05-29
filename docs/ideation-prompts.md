@@ -1,57 +1,62 @@
 # Initial Prompt:
-This initial prompt is to kick-off the collaboration to migrate the Windows service to C++20.  It will be a process of analysis, design, refactoring, and migration.  
+This initial prompt is to kick-off the collaboration to migrate the Windows service to C++20.  It will be a process of analysis, design, refactoring, and migration.  \
 As we begin the journey, I want to set some initial guidance to help develop a baseline.
 
 ## List of books that should be referenced as we work through this process:
-* Programming Principles and Practice Using C++ - Stroustrup
-* C++ Memory Management - Pratrice Roy
-* C++20 Get the Details 2nd Edition - Rainer Grimm
-* Embracing Modern C++ Safely - Lakow
-* Effective Modern C++ - Meyers
-* C++ Coding Standards - Sutter and Alexandrescu
-* The C++ Standard Library - Josuttis 
-* C++ Templates - Josuttis
-* Windows via C/C++ 5th Edition - Richter
-* Functional Programming in C++ - Cukic
-* Large Scale C++ Software Design - Lakow
-* Network Algorithmics - Varghese
-* Advanced Windows Debugging - Hewardt, Pravat
-* Debugging Windows Programs - McKay, Woodring
-* ATL Internals 2nd Edition - Rector, Sells
-* Designign Applications with MSMQ - Dickman
+- Programming Principles and Practice Using C++ - Stroustrup
+- C++ Memory Management - Pratrice Roy
+- C++20 Get the Details 2nd Edition - Rainer Grimm
+- Embracing Modern C++ Safely - Lakow
+- Effective Modern C++ - Meyers
+- C++ Coding Standards - Sutter and Alexandrescu
+- The C++ Standard Library - Josuttis 
+- C++ Templates - Josuttis
+- Windows via C/C++ 5th Edition - Richter
+- Functional Programming in C++ - Cukic
+- Large Scale C++ Software Design - Lakow
+- Network Algorithmics - Varghese
+- Advanced Windows Debugging - Hewardt, Pravat
+- Debugging Windows Programs - McKay, Woodring
+- ATL Internals 2nd Edition - Rector, Sells
+- Designign Applications with MSMQ - Dickman
 
 ## List of links to include:
-* ["C++ Core Guidelines - GitHub Pages"](https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines?utm_source=chatgpt.com)
-* ["Google C++ Style Guide"](https://google.github.io/styleguide/cppguide.html?utm_source=chatgpt.com) 
-* ["hhvm/hphp/doc/coding-conventions.md at master - GitHub"](https://github.com/facebook/hhvm/blob/master/hphp/doc/coding-conventions.md?utm_source=chatgpt.com) 
-* ["Using the C++ Core Guidelines checkers | Microsoft Learn"](https://learn.microsoft.com/en-us/cpp/code-quality/using-the-cpp-core-guidelines-checkers?view=msvc-170&utm_source=chatgpt.com) 
-* ["Secure Coding Guidelines for Developers"](https://docs.oracle.com/cd/E26502_01/html/E29016/scode-1.html?utm_source=chatgpt.com) 
-* [SEI Standards](https://wiki.sei.cmu.edu/confluence/pages/viewpage.action?pageId=88046682)
-* [The legacy code we will be refactoring](https://github.com/mikebiz/bmobile/tree/main/docs/legacy-source) 
+- ["C++ Core Guidelines - GitHub Pages"](https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines?utm_source=chatgpt.com)
+- ["Google C++ Style Guide"](https://google.github.io/styleguide/cppguide.html?utm_source=chatgpt.com) 
+- ["hhvm/hphp/doc/coding-conventions.md at master - GitHub"](https://github.com/facebook/hhvm/blob/master/hphp/doc/coding-conventions.md?utm_source=chatgpt.com) 
+- ["Using the C++ Core Guidelines checkers | Microsoft Learn"](https://learn.microsoft.com/en-us/cpp/code-quality/using-the-cpp-core-guidelines-checkers?view=msvc-170&utm_source=chatgpt.com) 
+- ["Secure Coding Guidelines for Developers"](https://docs.oracle.com/cd/E26502_01/html/E29016/scode-1.html?utm_source=chatgpt.com) 
+- [SEI Standards](https://wiki.sei.cmu.edu/confluence/pages/viewpage.action?pageId=88046682)
+- [The legacy code we will be refactoring](https://github.com/mikebiz/bmobile/tree/main/docs/legacy-source) 
 
 ## Existing Sessions to include and reference:
-* "C++ Coding Standards Guide"
-* "PlantUML Guide for SDE"
-* "ODBC C++ Wrapper"
-* "Repo Structure and README"
-* "C++20 New Features Review"
-* "C++23 Key Updates"
-* "Large-Scale C++ Design Overview"
-* "C++ Hexagonal Architecture Implementation"
-* "C++ Security Protections"
-* "IP Helper API Namespaces"
+- "C++ Coding Standards Guide"
+- "PlantUML Guide for SDE"
+- "ODBC C++ Wrapper"
+- "Repo Structure and README"
+- "C++20 New Features Review"
+- "C++23 Key Updates"
+- "Large-Scale C++ Design Overview"
+- "C++ Hexagonal Architecture Implementation"
+- "C++ Security Protections"
+- "IP Helper API Namespaces"
 
 ## Outline of Prompt
 Windows Routing Service that acts like an overlay network:  
 The services runs on Windows Servers and utilizes IP, UDP, MSMQ, MS SQL Server, ATL, and C++.
 
 ### Background:
-This Windows Service was created in 2006/2007.  While it was needed to provide a specific purpose to solve a business problem, it evolved into what amounts to a network packet dissemination or broadcast service based on the notion of "Publishing Points", "Publishers", and "Subscribers".  For this first migration, we will focus solely on the network routing aspects and not the logic to manage the publishing points, publishers or subscribers.
+This Windows Service was created in 2006/2007.  While it was needed to provide a specific purpose to solve a business problem, it evolved into what amounts \
+to a network packet dissemination or broadcast service based on the notion of "Publishing Points", "Publishers", and "Subscribers".  For this first migration, we \
+will focus solely on the network routing aspects and not the logic to manage the publishing points, publishers or subscribers.
 
-A Publishing Point can contain 1 or more publishers and 1 or more subscribers.  One of the basic concepts this will support is a video conference. 
+A Publishing Point can contain 1 or more publishers and 1 or more subscribers.  One of the basic concepts this will support is a routing service. 
 
+The functionality of the service, at a high-level, is pretty simple; it ingests network packets, determines what publishing point they are destined to, pulls the list \
+of subscribers for the publishing point from an in-memory routing table, and then pushes the packets to them.  For the most part, the network packets are opaque \
+to the server with the exception being the first section or bytes of the packet.
 
-The functionality of the service, at a high-level, is pretty simple; it ingests network packets, determines what publishing point they are destined to, pulls the list of subscribers for the publishing point from an in-memory routing table, and then pushes the packets to them.  For the most part, the network packets are opaque to the server with the exception being the first section or bytes of the packet.
+**All packets** must contain the following structure at the beginning in order for routing to occur (from file [PacketInfoStructs.h](https://github.com/mikebiz/bmobile/blob/main/docs/legacy-source/PacketInfoStructs.h)).
 
 ```cpp
 const UINT8 PHS_MAX = 5;
@@ -132,39 +137,50 @@ const UINT32 MAX_EVENT_HEADER ( sizeof( EVENT_HEADER ) );
 ```
 
 ### There are some key concepts that exist today or would like to be added:
-* Windows Service written in C++20 (new)
-* Core Service and coding guidelines follow that of ATL (existing)
-* Network Protocol UDP (existing)
-* Registered I/O RIO (new)
-* Windows Threadpool (existing)
-* Network packets are opaque to the server.  The server will be agnostic to the content of the packets and is capable of routing from 1 or more sources (publishers) to 1 or more destination (subscribers)
-* The service will have an in-memory route table that is updated from a database store in near real-time through messages delivered by MSMQ (existing)
-* Zero memcpy between published message and subscribed message.  A common pool of pre-allocated memory is used (existing)
-* Meta data and Publishing Point, Publisher, and Subscriber data is persisted in MS SQL Server (existing)
-* MSMQ is used as the mechanism to pass synchronization messages between the servers
-* A layered design between modules that make up the service based on Hexagonal Architecture influencing dependency injection and inversion of control (new)
-* Logging in Windows, Recommended eventing and performance measurements (new)
+- Windows Service written in C++20 (new)
+- Core Service and coding guidelines follow that of ATL (existing)
+- Network Protocol UDP (existing)
+- Registered I/O RIO (new)
+- Windows Threadpool (existing)
+- Network packets are opaque to the server.  The server will be agnostic to the content of the packets and is capable of routing from 1 or more sources (publishers)  to 1 or more destination (subscribers)
+- The service will have an in-memory route table that is updated from a database store in near real-time through messages delivered by MSMQ (existing)
+- Zero memcpy between published message and subscribed message.  A common pool of pre-allocated memory is used (existing)
+- Meta data and Publishing Point, Publisher, and Subscriber data is persisted in MS SQL Server (existing)
+- MSMQ is used as the mechanism to pass synchronization messages between the servers
+- A layered design between modules that make up the service based on Hexagonal Architecture influencing dependency injection and inversion of control (new)
+- Logging in Windows, Recommended eventing and performance measurements (new)
 
 The first phase of this effort will focus on design and documenting the design of the system (the service and supporting modules) in Plant UML.
 
 ### Service Modules:
 Some Ideas for these modules include but are not limited to:
-* Network
-* Storage
-* Security
-* Routing
-* Publishing
-* Metadata Support and Maintenance
+- Network
+- Storage
+- Security
+- Routing
+- Publishing
+- Metadata Support and Maintenance
 
 Once the supporting modules have been identified and agreed to, we will work on the diagrams based on PlantUML which will include but not be limited to:
-* Deployment diagram to capture the layers of the modules
-* Sequence diagrams to document events the service will handle
-* State transition diagrams of various modules and the Publishing points, publishers, and subscribers.
+- Deployment diagram to capture the layers of the modules
+- Sequence diagrams to document events the service will handle
+- State transition diagrams of various modules and the Publishing points, publishers, and subscribers.
 
 ### Items to include: 
-* **Hexagonal Architecture** - How can I incorporate this into the design of the service.  Include things in Dependency Injection and Dependency Inversion Principle.  Driver->module (driven) | (driver)->module
-* **Unit tests** -  What is the best strategy for creating Unit Test, Functional Test, Integration Test?  What are some creative ways to execute these?
-* **PlantUML** - Minimal coverage of modules, event handling through sequence diagrams, and STDs
+- **Hexagonal Architecture** - How can I incorporate this into the design of the service.  Include things in Dependency Injection and Dependency Inversion Principle.  Driver->module (driven) | (driver)->module
+- **Unit tests** -  What is the best strategy for creating Unit Test, Functional Test, Integration Test?  What are some creative ways to execute these?
+- **PlantUML** - Minimal coverage of modules, event handling through sequence diagrams, and STDs
+
+## Initial Prompt:
+In the initial prompt, I want to focus on developing understanding of the [legacy-source](https://github.com/mikebiz/bmobile/tree/main/docs/legacy-source)  and the buildout of the \
+design of the modules and overall service by developing the strategy on what service modules to create and a layer diagram of how they relate to oneanother.
+- Review the entirity of this document
+- Review the legacy source code
+- Review the header "Service Modules" above and begin to work through the ideation of how to modularize the existing service design.  I would like to use some concept  like Hexagonal Architecture
+- All design artifacts should be developed using PlantUML so that it can be saved and currated in the github repo
+
+
+
 
 
 
