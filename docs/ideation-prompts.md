@@ -52,8 +52,35 @@ A Publishing Point can contain 1 or more publishers and 1 or more subscribers.  
 
 The functionality of the service, at a high-level, is pretty simple; it ingests network packets, determines what publishing point they are destined to, pulls the list of subscribers for the publishing point from an in-memory routing table, and then pushes the packets to them.  For the most part, the network packets are opaque to the server with the exception being the first section or bytes of the packet.
 
-
 '''cpp
+const UINT8 PHS_MAX = 5;
+//#ifndef _MANAGED
+#include <pshpack1.h>
+//#endif
+
+#ifndef UNDER_CE
+const UINT32 OUT_MAX_PACKET_PAYLOAD = 8 * 1514; //32768; //2048; //32768; // 54000;// 32768 ;  
+const UINT32 IN_MAX_PACKET_PAYLOAD = 1 * 1514; //32768; //2048; //32768; // 54000;// 32768 ;  
+#else
+const UINT32 OUT_MAX_PACKET_PAYLOAD = 5 * 1514; //32768; //2048; //32768; // 54000;// 32768 ;  
+const UINT32 IN_MAX_PACKET_PAYLOAD = 1 * 1; //32768; //2048; //32768; // 54000;// 32768 ;  
+#endif
+const UINT32 MAX_AUDIO_PACKET_BLOB = 700;  
+const UINT32 MAX_MANAGEMENT_PACKET_BLOB = 700;  
+
+typedef struct _RECV_INFO
+{
+	SOCKET				sd;
+	INT32				iThread;
+#ifdef _VISTA_
+	PTP_IO				pRecvIo;
+#endif
+	HANDLE				hEvents;
+    SOCKADDR_STORAGE    safrom;
+	HANDLE				hAcceptEvents;
+}RECV_INFO, *PRECV_INFO;
+const UINT32 MAX_RECV_INFO( sizeof( RECV_INFO ) );  
+
 
 typedef struct _IPHDR 
 {
@@ -102,3 +129,41 @@ typedef struct _tagEVENT_HEADER
 const UINT32 MAX_EVENT_HEADER ( sizeof( EVENT_HEADER ) );
 
 '''
+
+### There are some key concepts that exist today or would like to be added:
+* Windows Service written in C++20 (new)
+* Core Service and coding guidelines follow that of ATL (existing)
+* Network Protocol UDP (existing)
+* Registered I/O RIO (new)
+* Windows Threadpool (existing)
+* Network packets are opaque to the server.  The server will be agnostic to the content of the packets and is capable of routing from 1 or more sources (publishers) to 1 or more destination (subscribers)
+* The service will have an in-memory route table that is updated from a database store in near real-time through messages delivered by MSMQ (existing)
+* Zero memcpy between published message and subscribed message.  A common pool of pre-allocated memory is used (existing)
+* Meta data and Publishing Point, Publisher, and Subscriber data is persisted in MS SQL Server (existing)
+* MSMQ is used as the mechanism to pass synchronization messages between the servers
+* A layered design between modules that make up the service based on Hexagonal Architecture influencing dependency injection and inversion of control (new)
+* Logging in Windows, Recommended eventing and performance measurements (new)
+
+The first phase of this effort will focus on design and documenting the design of the system (the service and supporting modules) in Plant UML.
+
+### Service Modules:
+Some Ideas for these modules include but are not limited to:
+* Network
+* Storage
+* Security
+* Routing
+* Publishing
+* Metadata Support and Maintenance
+
+Once the supporting modules have been identified and agreed to, we will work on the diagrams based on PlantUML which will include but not be limited to:
+* Deployment diagram to capture the layers of the modules
+* Sequence diagrams to document events the service will handle
+* State transition diagrams of various modules and the Publishing points, publishers, and subscribers.
+
+### Items to include: 
+* **Hexagonal Architecture** - How can I incorporate this into the design of the service.  Include things in Dependency Injection and Dependency Inversion Principle.  Driver->module (driven) | (driver)->module
+* **Unit tests** -  What is the best strategy for creating Unit Test, Functional Test, Integration Test?  What are some creative ways to execute these?
+* **PlantUML** - Minimal coverage of modules, event handling through sequence diagrams, and STDs
+
+
+
