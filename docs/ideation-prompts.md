@@ -404,3 +404,56 @@ If yes, drop the first header when you’re ready, and we’ll start coding.
 
 ___
 
+***Additional Questions***
+> These items will become .lib files and not .dll, am I understanding this correctly?  ├─ bmobileUtil (LIB · fmt/spdlog, time, json, helpers)
+├─ bmobileCoreRouting (LIB · pure C++20 domain code)
+├─ bmobileNetRIO (LIB · RIO/IOCP adapters + thread-pool)
+├─ bmobileDataAccess (LIB · MSMQ + SQL/ODBC glue)
+
+***Response***
+Yes — for the redesign phase I’m treating the four “bmobile\*” components as **static libraries (.lib)** rather than DLLs:
+
+```
+BmobileRuntime.exe      ──┬──>  bmobileUtil.lib
+                          ├──>  bmobileCoreRouting.lib
+                          ├──>  bmobileNetRIO.lib
+                          └──>  bmobileDataAccess.lib
+BmobileMgmtAPI.dll      ───┘   (optional management façade)
+```
+
+### Why start with static .libs?
+
+| Reason                     | Benefit right now                                                                                                                                             |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **No deployment friction** | The EXE (and the one Mgmt DLL) ship self-contained; no version-hell from misplaced DLLs, no SxS manifests, no extra installer steps.                          |
+| **Easier refactor loop**   | You can move classes, functions, and even internal headers between libs without worrying about symbol-export baggage (`__declspec(dllexport)` / DEF files).   |
+| **Single CRT & allocator** | Everything is linked against the same `/MT` or `/MD` runtime, which sidesteps cross-DLL ownership rules for sockets, handles, `std::string`, etc.             |
+| **Performance**            | Call boundaries disappear at link-time (especially with LTCG and /OPT\:ICF), and there’s no DLL import-table indirection for hot paths such as RIO callbacks. |
+| **Unit-test friendliness** | GoogleTest can link directly against each static lib; no need to build special test harness DLLs.                                                             |
+
+### What if we later **need** DLL boundaries?
+
+* The source layout (one VS project per component) stays the same:
+  *Project -→ **Configuration Type** -→ “Dynamic Library (.dll)”*
+* The public headers will already be clean, because we’ll use interface partition files / modules. We can add an `#ifdef Bmobile_EXPORTS` macro later without big churn.
+* **When to flip**:
+
+  * If you want a plug-in model (third-party modules),
+  * If you must expose COM/WinRT or gRPC endpoints directly from `bmobileCoreRouting`,
+  * If multiple processes need to share the same code in memory.
+
+But until one of those drivers appears, static `.lib` keeps build & deploy velocity high.
+
+### Visual Studio setup (quick checklist)
+
+1. **Project → Add → New Project → “Static Library (C++)”.**
+2. *General* tab → change *Project Name* to `bmobileUtil`, *Target Name* to `bmobileUtil` (no “lib” prefix).
+3. **C/C++ → Language → /std\:c++20** and `/permissive-`.
+4. **Code Generation → Runtime Library**: decide `/MT` (static CRT) vs `/MD` (DLL CRT). Staying consistent across all projects avoids linker headaches.
+5. For the EXE and Mgmt DLL, add the four `.lib` projects as **Project Dependencies** so VS builds in the right order.
+
+### Bottom line
+
+*All* the reusable code lives in those static libraries; the runtime host and the optional management façade are the only binaries you’ll deploy. If a future requirement surfaces that justifies DLLs, we can flip the relevant project(s) with minimal rework.
+
+Let me know when you’ve created the first static-lib project (e.g., **bmobileUtil**) and dropped in the initial file (Guid, SmartHandle, etc.). I’ll review the code and provide the C++20 refactor template.
