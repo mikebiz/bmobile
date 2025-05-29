@@ -20,7 +20,7 @@
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
-    <ProjectGuid>{021D9CB5-C8C0-B1B5-C967-6B84F9388B47}</ProjectGuid>
+    <ProjectGuid>{FB39F6A3-0C23-9744-9355-BDAB6C6BC898}</ProjectGuid>
     <Keyword>AtlProj</Keyword>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
@@ -95,11 +95,11 @@
     <Midl>
       <MkTypLibCompatible>false</MkTypLibCompatible>
       <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <HeaderFileName>bmobileCoreService_i.h</HeaderFileName>
-      <InterfaceIdentifierFileName>bmobileCoreService_i.c</InterfaceIdentifierFileName>
-      <ProxyFileName>bmobileCoreService_p.c</ProxyFileName>
+      <HeaderFileName>bmobileRuntime_i.h</HeaderFileName>
+      <InterfaceIdentifierFileName>bmobileRuntime_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>bmobileRuntime_p.c</ProxyFileName>
       <GenerateStublessProxies>true</GenerateStublessProxies>
-      <TypeLibraryName>$(IntDir)bmobileCoreService.tlb</TypeLibraryName>
+      <TypeLibraryName>$(IntDir)bmobileRuntime.tlb</TypeLibraryName>
       <DllDataFileName />
       <ValidateAllParameters>true</ValidateAllParameters>
     </Midl>
@@ -126,11 +126,11 @@
       <MkTypLibCompatible>false</MkTypLibCompatible>
       <TargetEnvironment>Win32</TargetEnvironment>
       <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <HeaderFileName>bmobileCoreService_i.h</HeaderFileName>
-      <InterfaceIdentifierFileName>bmobileCoreService_i.c</InterfaceIdentifierFileName>
-      <ProxyFileName>bmobileCoreService_p.c</ProxyFileName>
+      <HeaderFileName>bmobileRuntime_i.h</HeaderFileName>
+      <InterfaceIdentifierFileName>bmobileRuntime_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>bmobileRuntime_p.c</ProxyFileName>
       <GenerateStublessProxies>true</GenerateStublessProxies>
-      <TypeLibraryName>$(IntDir)bmobileCoreService.tlb</TypeLibraryName>
+      <TypeLibraryName>$(IntDir)bmobileRuntime.tlb</TypeLibraryName>
       <DllDataFileName />
       <ValidateAllParameters>true</ValidateAllParameters>
     </Midl>
@@ -157,11 +157,11 @@
       <MkTypLibCompatible>false</MkTypLibCompatible>
       <TargetEnvironment>Win32</TargetEnvironment>
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <HeaderFileName>bmobileCoreService_i.h</HeaderFileName>
-      <InterfaceIdentifierFileName>bmobileCoreService_i.c</InterfaceIdentifierFileName>
-      <ProxyFileName>bmobileCoreService_p.c</ProxyFileName>
+      <HeaderFileName>bmobileRuntime_i.h</HeaderFileName>
+      <InterfaceIdentifierFileName>bmobileRuntime_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>bmobileRuntime_p.c</ProxyFileName>
       <GenerateStublessProxies>true</GenerateStublessProxies>
-      <TypeLibraryName>$(IntDir)bmobileCoreService.tlb</TypeLibraryName>
+      <TypeLibraryName>$(IntDir)bmobileRuntime.tlb</TypeLibraryName>
       <DllDataFileName />
       <ValidateAllParameters>true</ValidateAllParameters>
     </Midl>
@@ -189,11 +189,11 @@
     <Midl>
       <MkTypLibCompatible>false</MkTypLibCompatible>
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <HeaderFileName>bmobileCoreService_i.h</HeaderFileName>
-      <InterfaceIdentifierFileName>bmobileCoreService_i.c</InterfaceIdentifierFileName>
-      <ProxyFileName>bmobileCoreService_p.c</ProxyFileName>
+      <HeaderFileName>bmobileRuntime_i.h</HeaderFileName>
+      <InterfaceIdentifierFileName>bmobileRuntime_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>bmobileRuntime_p.c</ProxyFileName>
       <GenerateStublessProxies>true</GenerateStublessProxies>
-      <TypeLibraryName>$(IntDir)bmobileCoreService.tlb</TypeLibraryName>
+      <TypeLibraryName>$(IntDir)bmobileRuntime.tlb</TypeLibraryName>
       <DllDataFileName />
       <ValidateAllParameters>true</ValidateAllParameters>
     </Midl>
@@ -210,15 +210,15 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="bmobileCoreService_i.h" />
+    <ClInclude Include="bmobileRuntime_i.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="bmobileCoreService.cpp" />
-    <ClCompile Include="bmobileCoreService_i.c">
+    <ClCompile Include="bmobileRuntime.cpp" />
+    <ClCompile Include="bmobileRuntime_i.c">
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
@@ -240,13 +240,13 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="bmobileCoreService.rc" />
+    <ResourceCompile Include="bmobileRuntime.rc" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="bmobileCoreService.rgs" />
+    <None Include="bmobileRuntime.rgs" />
   </ItemGroup>
   <ItemGroup>
-    <Midl Include="bmobileCoreService.idl" />
+    <Midl Include="bmobileRuntime.idl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

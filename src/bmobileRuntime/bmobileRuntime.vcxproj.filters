@@ -14,7 +14,7 @@
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
     <Filter Include="Generated Files">
-      <UniqueIdentifier>{e5f2fc25-4b37-4fd7-855d-c9de9588ee17}</UniqueIdentifier>
+      <UniqueIdentifier>{d0d026e5-93bf-4493-8d15-fd00f84ffcb2}</UniqueIdentifier>
       <SourceControlFiles>False</SourceControlFiles>
     </Filter>
   </ItemGroup>
@@ -28,7 +28,7 @@
     <ClInclude Include="Resource.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="bmobileCoreService_i.h">
+    <ClInclude Include="bmobileRuntime_i.h">
       <Filter>Generated Files</Filter>
     </ClInclude>
     <ClInclude Include="pch.h">
@@ -36,10 +36,10 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="bmobileCoreService.cpp">
+    <ClCompile Include="bmobileRuntime.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="bmobileCoreService_i.c">
+    <ClCompile Include="bmobileRuntime_i.c">
       <Filter>Generated Files</Filter>
     </ClCompile>
     <ClCompile Include="pch.cpp">
@@ -47,17 +47,17 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="bmobileCoreService.rc">
+    <ResourceCompile Include="bmobileRuntime.rc">
       <Filter>Resource Files</Filter>
     </ResourceCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="bmobileCoreService.rgs">
+    <None Include="bmobileRuntime.rgs">
       <Filter>Resource Files</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>
-    <Midl Include="bmobileCoreService.idl">
+    <Midl Include="bmobileRuntime.idl">
       <Filter>Source Files</Filter>
     </Midl>
   </ItemGroup>

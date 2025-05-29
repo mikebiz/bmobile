@@ -1,0 +1,18 @@
+// bmobileRuntime.idl : IDL source for bmobileRuntime
+//
+
+// This file will be processed by the MIDL tool to
+// produce the type library (bmobileRuntime.tlb) and marshalling code.
+
+import "oaidl.idl";
+import "ocidl.idl";
+
+[
+	uuid(2d4395a6-8f9b-4c80-8b83-3f3408587f3c),
+	version(1.0),
+]
+library bmobileRuntimeLib
+{
+	importlib("stdole2.tlb");
+};
+

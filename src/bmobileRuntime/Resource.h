@@ -1,10 +1,10 @@
 //{{NO_DEPENDENCIES}}
 // Microsoft Visual C++ generated include file.
-// Used by bmobileCoreService.rc
+// Used by bmobileRuntime.rc
 //
 
 #define IDS_SERVICENAME                 100
-#define IDR_BMOBILECORESERVICE      101
+#define IDR_BMOBILERUNTIME      101
 
 // Next default values for new objects
 //

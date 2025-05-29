@@ -1,21 +1,21 @@
-// bmobileCoreService.cpp : Implementation of WinMain
+// bmobileRuntime.cpp : Implementation of WinMain
 
 
 #include "pch.h"
 #include "framework.h"
 #include "resource.h"
-#include "bmobileCoreService_i.h"
+#include "bmobileRuntime_i.h"
 
 
 using namespace ATL;
 
 #include <stdio.h>
 
-class CbmobileCoreServiceModule : public ATL::CAtlServiceModuleT< CbmobileCoreServiceModule, IDS_SERVICENAME >
+class CbmobileRuntimeModule : public ATL::CAtlServiceModuleT< CbmobileRuntimeModule, IDS_SERVICENAME >
 {
 public :
-	DECLARE_LIBID(LIBID_bmobileCoreServiceLib)
-	DECLARE_REGISTRY_APPID_RESOURCEID(IDR_BMOBILECORESERVICE, "{c274b8ec-5a50-4862-af35-417565845916}")
+	DECLARE_LIBID(LIBID_bmobileRuntimeLib)
+	DECLARE_REGISTRY_APPID_RESOURCEID(IDR_BMOBILERUNTIME, "{2d4395a6-8f9b-4c80-8b83-3f3408587f3c}")
 	HRESULT InitializeSecurity() throw()
 	{
 		// TODO : Call CoInitializeSecurity and provide the appropriate security settings for your service
@@ -27,7 +27,7 @@ public :
 	}
 };
 
-CbmobileCoreServiceModule _AtlModule;
+CbmobileRuntimeModule _AtlModule;
 
 
 

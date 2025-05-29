@@ -6,7 +6,7 @@
  /* File created by MIDL compiler version 8.01.0628 */
 /* at Mon Jan 18 22:14:07 2038
  */
-/* Compiler settings for bmobileCoreService.idl:
+/* Compiler settings for bmobileRuntime.idl:
     Oicf, W1, Zp8, env=Win64 (32b run), target_arch=AMD64 8.01.0628 
     protocol : all , ms_ext, c_ext, robust
     error checks: allocation ref bounds_check enum stub_data 
@@ -31,8 +31,8 @@
 #endif /* __RPCNDR_H_VERSION__ */
 
 
-#ifndef __bmobileCoreService_i_h__
-#define __bmobileCoreService_i_h__
+#ifndef __bmobileRuntime_i_h__
+#define __bmobileRuntime_i_h__
 
 #if defined(_MSC_VER) && (_MSC_VER >= 1020)
 #pragma once
@@ -58,15 +58,15 @@ extern "C"{
 
 
 
-#ifndef __bmobileCoreServiceLib_LIBRARY_DEFINED__
-#define __bmobileCoreServiceLib_LIBRARY_DEFINED__
+#ifndef __bmobileRuntimeLib_LIBRARY_DEFINED__
+#define __bmobileRuntimeLib_LIBRARY_DEFINED__
 
-/* library bmobileCoreServiceLib */
+/* library bmobileRuntimeLib */
 /* [version][uuid] */ 
 
 
-EXTERN_C const IID LIBID_bmobileCoreServiceLib;
-#endif /* __bmobileCoreServiceLib_LIBRARY_DEFINED__ */
+EXTERN_C const IID LIBID_bmobileRuntimeLib;
+#endif /* __bmobileRuntimeLib_LIBRARY_DEFINED__ */
 
 /* Additional Prototypes for ALL interfaces */
 
