@@ -1,4 +1,4 @@
-# Initial Prompt:
+# Overview of Prompt:
 This initial prompt is to kick-off the collaboration to migrate the Windows service to C++20.  It will be a process of analysis, design, refactoring, and migration.  \
 As we begin the journey, I want to set some initial guidance to help develop a baseline.
 
