@@ -9,7 +9,7 @@ As we begin the journey, I want to set some initial guidance to help develop a b
 * Embracing Modern C++ Safely - Lakow
 * Effective Modern C++ - Meyers
 * C++ Coding Standards - Sutter and Alexandrescu
-* The C++ Standard Library - Josuttis
+* The C++ Standard Library - Josuttis 
 * C++ Templates - Josuttis
 * Windows via C/C++ 5th Edition - Richter
 * Functional Programming in C++ - Cukic
@@ -50,9 +50,10 @@ This Windows Service was created in 2006/2007.  While it was needed to provide a
 
 A Publishing Point can contain 1 or more publishers and 1 or more subscribers.  One of the basic concepts this will support is a video conference. 
 
+
 The functionality of the service, at a high-level, is pretty simple; it ingests network packets, determines what publishing point they are destined to, pulls the list of subscribers for the publishing point from an in-memory routing table, and then pushes the packets to them.  For the most part, the network packets are opaque to the server with the exception being the first section or bytes of the packet.
 
-'''cpp
+```cpp
 const UINT8 PHS_MAX = 5;
 //#ifndef _MANAGED
 #include <pshpack1.h>
@@ -128,7 +129,7 @@ typedef struct _tagEVENT_HEADER
 }EVENT_HEADER, *PEVENT_HEADER;
 const UINT32 MAX_EVENT_HEADER ( sizeof( EVENT_HEADER ) );
 
-'''
+```
 
 ### There are some key concepts that exist today or would like to be added:
 * Windows Service written in C++20 (new)
