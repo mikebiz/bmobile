@@ -4,6 +4,8 @@
 #include "pch.h"
 #include "framework.h"
 
+#include "Heap2.hpp"
+
 // TODO: This is an example of a library function
 void fnbmobileUtil()
 {
