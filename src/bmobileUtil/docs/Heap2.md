@@ -299,3 +299,205 @@ With that, you get all the compile-time benefits of `WIN32_LEAN_AND_MEAN` and th
    #include "bmobile/Heap2.hpp"
    // other includes...
    ```
+
+   `can you create initial google test and gmock files for bmobileHeap2?`
+   Below are **ready-to-drop source files** for your new Google Test project:
+
+| File                        | Purpose                                                                                                                                                                         |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`Heap2_test.cpp`**        | Core unit tests that exercise allocation, deallocation, alignment, and concurrency for `bmobile::Heap2<T>`.                                                                     |
+| **`Heap2_gmock_fixture.h`** | (Optional) Demonstrates how you’d wrap the allocator in a mock-friendly façade so future components can inject an “allocator” dependency and set expectations with Google Mock. |
+
+> **How to integrate**
+>
+> 1. In Visual Studio: **Add ⇒ New Project ⇒ Google Test ⇒ “bmobileUtilTests”** (Static or Console App).
+> 2. Right-click the project → **Add Existing Item…** and select the two files below.
+> 3. **Project → References…** ⇒ add your `bmobileUtil` project so the tests link against the allocator implementation.
+> 4. Build & run (Test Explorer shows the cases).
+
+---
+
+### `Heap2_test.cpp`
+
+```cpp
+#include "pch.h"                // your test project’s PCH
+#include <gtest/gtest.h>
+#include <thread>
+#include <vector>
+
+#include "bmobile/Heap2.hpp"    // allocator under test
+
+namespace {
+
+// -----------------------------------------------------------------------------
+// Simple POD to allocate
+// -----------------------------------------------------------------------------
+struct Pod
+{
+    int    a{0};
+    double b{0.0};
+};
+
+using PodHeap = bmobile::Heap2<Pod>;
+
+// -----------------------------------------------------------------------------
+// Helpers
+// -----------------------------------------------------------------------------
+template <typename F>
+void run_parallel(std::size_t threads, F&& f)
+{
+    std::vector<std::jthread> workers;
+    workers.reserve(threads);
+    for (std::size_t i = 0; i < threads; ++i)
+        workers.emplace_back(f);
+}
+
+// -----------------------------------------------------------------------------
+// Unit tests
+// -----------------------------------------------------------------------------
+
+TEST(Heap2, AllocateAndFreeSingle)
+{
+    Pod* p = new Pod;
+    ASSERT_NE(p, nullptr);
+    EXPECT_EQ(p->a, 0);
+    delete p;                    // should implicitly destroy heap when last alive
+}
+
+TEST(Heap2, AlignmentIsSufficient)
+{
+    void* p = ::operator new(sizeof(Pod), std::align_val_t{alignof(Pod)});
+    EXPECT_EQ(reinterpret_cast<uintptr_t>(p) % alignof(Pod), 0u);
+    ::operator delete(p, std::align_val_t{alignof(Pod)});
+}
+
+TEST(Heap2, ConcurrentAllocations)
+{
+    constexpr std::size_t iters      = 10'000;
+    constexpr std::size_t numThreads = 8;
+
+    run_parallel(numThreads, [=] {
+        for (std::size_t i = 0; i < iters; ++i)
+        {
+            Pod* p = new Pod;
+            [[maybe_unused]] int x = p->a;
+            delete p;
+        }
+    });
+
+    // If we get here without AV or heap corruption, we’re good.
+    SUCCEED();
+}
+
+} // anonymous namespace
+```
+
+---
+
+### `Heap2_gmock_fixture.h`  *(optional, only if you need mocks later)*
+
+```cpp
+#pragma once
+#include <gmock/gmock.h>
+
+/**
+ *  Example interface so higher-level code can accept “any allocator”
+ *  and you can plug in Google Mock for behavioural tests.
+ */
+class IHeap
+{
+public:
+    virtual ~IHeap() = default;
+    virtual void* allocate(std::size_t)            = 0;
+    virtual void  deallocate(void*)                = 0;
+};
+
+/**
+ *  Production wrapper around bmobile::Heap2; fulfils IHeap.
+ */
+template <typename T>
+class HeapAdapter final : public IHeap
+{
+public:
+    void* allocate(std::size_t sz) override        { return bmobile::Heap2<T>::operator new(sz); }
+    void  deallocate(void* p)       override       { bmobile::Heap2<T>::operator delete(p);      }
+};
+
+/**
+ *  Google Mock stand-in.  You’d use this for tests on components
+ *  that *depend* on an allocator—not for testing the allocator itself.
+ */
+class MockHeap : public IHeap
+{
+public:
+    MOCK_METHOD(void*, allocate,   (std::size_t), (override));
+    MOCK_METHOD(void,  deallocate, (void*),       (override));
+};
+```
+
+---
+
+### Build-and-run verification
+
+* After adding the files, **Build Solution** → 0 errors.
+* **Test → Run All Tests**: you should see three passing tests.
+* Try **Debug All Tests** to step through the allocator under the debugger.
+
+This gives you a solid baseline: the allocator is covered for single and multithreaded paths, and you now have a pattern for introducing Google Mock when higher-level code needs allocator injection. Feel free to add more edge-case tests (e.g., very large allocations, exception safety) as the project evolves.
+
+`do I put this new project in the 'tests' folder I created or does it go at the same level as the rest of the projects?`
+
+**Put the Google Test project inside your `tests` folder** (both in the file-system and as a *solution-folder* in Visual Studio).
+That keeps all unit- and integration-test targets grouped together and separate from the production code.
+
+---
+
+### Recommended layout
+
+```
+/bmobile-root
+│
+├─ libs/
+│   ├─ bmobileUtil/
+│   ├─ bmobileCoreRouting/
+│   ├─ …
+│
+├─ apps/
+│   ├─ BmobileRuntime/
+│   └─ BmobileMgmtAPI/
+│
+└─ tests/                     ← <-- all test projects live here
+    ├─ bmobileUtilTests/      ← Google Test project you just added
+    ├─ coreRoutingTests/
+    └─ integrationSmokeTests/
+```
+
+* **Solution-folder “tests”** – In *Solution Explorer* you can right-click the root, **Add → New Solution Folder → “tests”**, then drag each test project into it.
+* **Physical path** – When you create **bmobileUtilTests**, set its *Location* to `<repo>/tests/bmobileUtilTests` so the `.vcxproj` and source files stay under the `tests/` directory.
+
+---
+
+### Why keep tests together
+
+| Benefit                          | Detail                                                                                                                                           |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Clean VS solution view**       | One expand/collapse node shows *all* test targets; devs don’t have to scroll past them to find production libs.                                  |
+| **Build configuration**          | You can create a solution-wide “ --TestsOnly ” configuration or set *Build* = false for test projects in “Release” so shipping builds stay lean. |
+| **CI pipelines**                 | A single glob like `tests\*\*.vcxproj` lets your GitHub Actions or Azure DevOps job discover and run every test suite automatically.             |
+| **Clarity for new contributors** | They see right away where to add new tests for a module.                                                                                         |
+
+---
+
+### Quick setup checklist
+
+1. **Add solution folder**
+   *Solution Explorer → right-click solution → Add → New Solution Folder → `tests`.*
+2. **Create the project inside it**
+   *Right-click the new folder → Add → New Project → “Google Test” → Name: `bmobileUtilTests` → Location: `<repo>\tests\bmobileUtilTests`*.
+3. **Reference the library**
+   *bmobileUtilTests → References → Add Reference → Projects → check `bmobileUtil`*.
+4. **Copy in the two files** (`Heap2_test.cpp`, optional `Heap2_gmock_fixture.h`) and build.
+5. **Test Explorer** should discover three passing tests.
+
+With that structure locked in, each future module (CoreRouting, NetRIO, DataAccess) gets its own test project under the same `tests/` umbrella, keeping the solution tidy and predictable.
+
