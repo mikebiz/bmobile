@@ -501,3 +501,166 @@ That keeps all unit- and integration-test targets grouped together and separate 
 
 With that structure locked in, each future module (CoreRouting, NetRIO, DataAccess) gets its own test project under the same `tests/` umbrella, keeping the solution tidy and predictable.
 
+`I had to update the include to this in the tests folder for bmobileUtil #include "../../bmobileUtil/Heap2.hpp"    // allocator under test`
+That relative path works, but you’ll save headaches later if the **test project knows where to find public headers without hard-coding `../../…`**.
+Here are two quick ways to do that in Visual Studio—pick whichever feels lighter-weight right now.
+
+---
+
+## 1 Add the library’s *include* folder to the test project’s search path  (one-off)
+
+1. **Right-click `bmobileUtilTests` → Properties.**
+2. **Configuration**: *All Configurations* ⟶ *All Platforms*
+3. **C/C++ → General → Additional Include Directories**
+4. Add
+
+   ```
+   $(SolutionDir)libs\bmobileUtil
+   ```
+
+   or, if your tree is exactly
+
+   ```
+   ...\libs\bmobileUtil\Heap2.hpp
+   ```
+
+   you can even point at `$(SolutionDir)libs`.
+5. OK / Apply, then change the include back to the simple form:
+
+   ```cpp
+   #include "bmobileUtil/Heap2.hpp"          // or just "Heap2.hpp"
+   ```
+
+   (Angle brackets are fine too: `<bmobileUtil/Heap2.hpp>`.)
+
+*Pros* No property sheets, minimal clicks.
+*Cons* You’ll repeat the same edit for each new test project that needs util headers.
+
+---
+
+## 2 Use a shared property sheet (`.props`)  (scales better)
+
+1. **View → Property Manager** (it’s hidden in default VS layouts).
+2. Expand the test project → Debug | Win32 (repeat for x64) → right-click **“Microsoft.Cpp.<…>.user”** → **Add New Project Property Sheet…**.
+3. Name it `BmobileIncludes.props` and save under `build/` or `.vs/props`.
+4. Inside that sheet:
+
+   * **Common Properties → C/C++ → General → Additional Include Directories**
+
+     ```
+     $(SolutionDir)libs\bmobileUtil;
+     $(SolutionDir)libs\bmobileCoreRouting;
+     $(SolutionDir)libs;                                         <-- catch-all
+     %(AdditionalIncludeDirectories)
+     ```
+5. **Attach** the same `.props` file to every project (test or production) that should “see” public headers from `libs/`. One change, many consumers.
+
+---
+
+### Why avoid deep relative includes
+
+| Issue                    | Impact                                                                                                                                     |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Breaks when folders move | If you rename `libs` → `src` or nest deeper, every `../../…` include breaks.                                                               |
+| Harder IDE Intellisense  | VS and clang-d use include paths to index headers; they treat funky relative chains as separate files.                                     |
+| Compile flags diverge    | Different translation units may accidentally include the same header via different relative paths, confusing `/FI`, PCH, or modules rules. |
+
+---
+
+## Quick test
+
+*After you add the include directory:*
+
+```bash
+# Clean + rebuild tests only
+msbuild tests\bmobileUtilTests\bmobileUtilTests.vcxproj /t:Rebuild
+#
+# or via IDE Test Explorer
+```
+
+The simple `#include "bmobileUtil/Heap2.hpp"` (or `<bmobileUtil/Heap2.hpp>`) should compile cleanly.
+If it doesn’t, double-check:
+
+* The path you typed in “Additional Include Directories” matches the on-disk layout.
+* The change was applied to **all** configurations (Debug/Release, x86/x64).
+
+---
+
+### Takeaway
+
+Keep production headers location-neutral; let project settings tell the compiler where to look.
+That way you can • shuffle folders, • switch to CMake later, or • install the libs system-wide—without touching `#include` lines again.
+
+`Also, this cannot be resolved:  std::align_val_t`
+`std::align_val_t` lives in the standard header **\<new>** and is available only when the compiler is in C++17 (or later) mode *and* “aligned new/delete” support is enabled.
+All MSVC 2019 + 2022 toolsets have it, but if a TU doesn’t `#include <new>` **before** it first uses the name, the symbol is undefined.
+
+---
+
+## Quick-fix for the test file
+
+```cpp
+#include "pch.h"
+#include <new>                  // ← add this line
+#include <gtest/gtest.h>
+#include <thread>
+#include <vector>
+
+#include "bmobileUtil/Heap2.hpp"
+```
+
+Now `std::align_val_t` will resolve.
+
+---
+
+### Why the header matters
+
+* `std::align_val_t` and the aligned‐allocation overloads
+
+  ```cpp
+  void* operator new(std::size_t, std::align_val_t);
+  void  operator delete(void*, std::align_val_t) noexcept;
+  ```
+
+  are *declared* in \<new>. The keyword `alignof` is in \<cstddef>, but the enum type itself is not.
+
+### MSVC switches to double-check
+
+| Property                             | Location                         | Should be                                                           |
+| ------------------------------------ | -------------------------------- | ------------------------------------------------------------------- |
+| **Language → C++ Language Standard** | *Project* → C/C++ → Language     | `/std:c++20` (or `/std:c++17`)                                      |
+| **C++17 aligned new support**        | Same page, flag `/Zc:alignedNew` | *(ON by default — only an explicit `/Zc:alignedNew-` turns it off)* |
+
+If you upgraded a very old .vcxproj, VS sometimes carries a legacy “Disable aligned new” flag. Make sure it’s cleared.
+
+---
+
+## Alternative: simplify the alignment test
+
+The allocator itself doesn’t need `std::align_val_t`; the test used it only to request a specific alignment.
+If you’d rather avoid the extra header altogether, you can drop the aligned-new call:
+
+```cpp
+TEST(Heap2, AlignmentIsSufficient)
+{
+    Pod* p = new Pod;                           // default new is suitably aligned
+    EXPECT_EQ(reinterpret_cast<uintptr_t>(p) %
+              alignof(Pod), 0u);
+    delete p;
+}
+```
+
+Either approach is fine; including \<new> is the most canonical fix.
+
+---
+
+### Recap
+
+1. Add `#include <new>` to any file that uses `std::align_val_t`.
+2. Ensure the project is compiling with `/std:c++17` or later and **does not** disable `/Zc:alignedNew`.
+3. Re-build the **bmobileUtilTests** project → tests should compile and run cleanly.
+
+With that resolved, your first Google Test suite for `bmobile::Heap2` is fully operational. 🎉
+
+***Note:***  When adding a new project to this solution, **ALWAYS** make sure you change the C++ language to C++20
+
