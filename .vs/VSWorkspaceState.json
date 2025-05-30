@@ -4,7 +4,9 @@
     "\\docs",
     "\\src",
     "\\src\\bmobileUtil",
-    "\\src\\bmobileUtil\\docs"
+    "\\src\\bmobileUtil\\docs",
+    "\\src\\packages",
+    "\\src\\tests\\bmobileUtilTests"
   ],
   "SelectedNode": "\\src\\bmobileUtil\\docs\\Heap2.md",
   "PreviewInSolutionExplorer": false
