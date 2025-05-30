@@ -1,4 +1,4 @@
-Below is a “drop-in” C++20 replacement for **`Heap2.hpp/.inl`** that eliminates the legacy ATL `CComCriticalSection` and the Win-typedefs **`VOID / PVOID`** (just use `void` / `void*`).
+Below is a “drop-in” C\++20 replacement for [Heap2.hpp](https://github.com/mikebiz/bmobile/blob/main/docs/legacy-source/BlxHeap.hpp) / [.inl](https://github.com/mikebiz/bmobile/blob/main/docs/legacy-source/BlxHeap.inl) that eliminates the legacy ATL `CComCriticalSection` and the Win-typedefs **`VOID / PVOID`** (just use `void` / `void*`).
 It keeps the Windows **Heap* APIs*\* (you said Windows-only is fine) but wraps every Windows handle and counter in modern, type-safe C++20 constructs:
 
 * **`std::mutex`** – protects lazy heap creation / destruction.
