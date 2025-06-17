@@ -2502,5 +2502,298 @@ So in order to add WebTransport support, you do not keep your existing RIO UDP e
 All the high‐performance UDP I/O (pinned buffers, completion queues) is already taken care of by msquic for you. Your job is just the WebTransport‐specific logic (handshake, frame handling, streams/datagrams).
 
 
+`Does the Microsoft sdk have quic network examples?`
+
+Microsoft’s msquic library (the official QUIC implementation from Microsoft) includes several complete samples under its GitHub repository. In particular:
+
+1. **msquic “sample” (C) server & client**
+
+   * The file [`src/tools/sample/sample.c`](https://github.com/microsoft/msquic/blob/main/src/tools/sample/sample.c) in the msquic GitHub tree is a minimal, self-contained QUIC server+client pair. It demonstrates:
+
+     * Initializing msquic
+     * Loading a TLS certificate
+     * Creating a listener on UDP port 443 (or other port)
+     * Accepting incoming HTTP/3/WebTransport CONNECTs
+     * Sending/receiving streams or datagrams.
+   * You can build and run this sample directly once you have the msquic binaries (DLL + import lib) and a self-signed certificate (or real server certificate).
+
+2. **msquic “Quic” folder under “tools”**
+
+   * In the same repo, there is a “tools” directory containing more examples (e.g. `quic_common.c`, `quic_server.c`, `quic_client.c`). These show how to configure connection parameters, set up callbacks for QUIC\_CONNECTION\_EVENT\_\* and QUIC\_STREAM\_EVENT\_\*, and send/receive data on streams or datagrams.
+
+3. **How to run the msquic samples**
+
+   * The msquic documentation (e.g. “Running Sample MsQuic Server and Client” on [https://microsoft.github.io/msquic/msquicdocs/docs/Sample.html](https://microsoft.github.io/msquic/msquicdocs/docs/Sample.html) – ([microsoft.github.io][1])) walks through generating a self-signed certificate on Windows (`New-SelfSignedCertificate`) or Linux (`openssl req …`) and then launching the sample server (`MsQuicSample.exe –cert_thumbprint <yourThumb>`) and the sample client (`MsQuicSampleClient.exe <serverAddress> <port>`).
+
+4. **Where else to look**
+
+   * On GitHub: [https://github.com/microsoft/msquic](https://github.com/microsoft/msquic) – in the top-level `src/tools/` directory you’ll find:
+
+     * `sample/` (the minimal, “hello-world” style server+client)
+     * `perf/` (performance test harnesses)
+     * `interop/` (interop tests against other QUIC implementations).
+   * On Microsoft’s docs site:
+
+     * “MsQuic API” ([https://microsoft.github.io/msquic/msquicdocs/docs/API.html](https://microsoft.github.io/msquic/msquicdocs/docs/API.html)) shows the core C APIs and types (MsQuicOpen, ConfigurationOpen, ListenerOpen, etc.) ([microsoft.github.io][2])
+     * “msquic is open source” blog posts (e.g. announcement at TechCommunity) give guidance on building from source.
+
+In short, **yes**—the Microsoft MS quic SDK (msquic) absolutely provides working QUIC sample applications. You can clone [https://github.com/microsoft/msquic](https://github.com/microsoft/msquic), build the library, and then compile/run `src/tools/sample/sample.c` (and the corresponding client) to see a full QUIC server/client in action. For detailed instructions, see:
+
+* GitHub: `src/tools/sample/sample.c` ([github.com][3], [microsoft.github.io][1])
+* Official msquic docs: “Running Sample MsQuic Server and Client” ([microsoft.github.io][1])
+
+[1]: https://microsoft.github.io/msquic/msquicdocs/docs/Sample.html?utm_source=chatgpt.com "Running Sample MsQuic Server and Client - Microsoft Open Source"
+[2]: https://microsoft.github.io/msquic/msquicdocs/docs/API.html?utm_source=chatgpt.com "MsQuic API - Microsoft Open Source"
+[3]: https://github.com/microsoft/msquic/blob/main/src/tools/sample/sample.c?utm_source=chatgpt.com "msquic/src/tools/sample/sample.c at main - GitHub"
+
+
+`Does msft edge support quic`
+Yes. The Chromium‐based Microsoft Edge (v 80+ on Windows, macOS, Linux) includes a built-in QUIC stack and speaks HTTP/3 over QUIC by default. In other words, any website that advertises an HTTP/3 (QUIC) endpoint will be able to negotiate QUIC in Edge without extra plug-ins.
+
+* **How to verify or tweak in Edge**
+
+  1. In the address bar, type `edge://flags/#enable-quic` and press Enter.
+  2. You should see a “QUIC protocol” flag (typically set to “Default” or “Enabled”).
+  3. If it’s disabled for some reason, flip it to “Enabled,” relaunch the browser, and Edge will attempt QUIC/HTTP3 wherever available.
+
+* **How to test that QUIC is actually in use**
+
+  1. Open the DevTools Network tab (F12).
+  2. Reload a page on a site that supports HTTP/3 (for example, Cloudflare’s [https://cloudflare-quic.com](https://cloudflare-quic.com) or Google’s [https://www.google.com/](https://www.google.com/)).
+  3. In the Protocol column you should see “h3-xx” (where xx is the draft version, e.g. h3-23) instead of “h2” or “http/1.1.” That confirms Edge has negotiated HTTP/3 over QUIC.
+
+So, in short: **yes**—modern Edge (Chromium-based) supports QUIC out of the box.
+
+`Are you familiar with xdp for windows`
+
+XDP (eXpress Data Path) in its original form is strictly a Linux kernel feature—there’s no native, drop-in XDP subsystem in Windows. That said, Microsoft has been investing in **eBPF for Windows**, and one of the goals of that work is to eventually enable XDP-style, zero-copy packet processing on Windows NDIS interfaces. Below is a sketch of the current situation:
+
+---
+
+## 1. What XDP is on Linux
+
+* **XDP** lives in the Linux kernel at the earliest point in the network stack (right after the NIC’s driver sees a packet).
+* You write small C programs in the eBPF dialect, attach them to an XDP “hook” on a given interface, and the kernel JIT-compiles them to native machine code.
+* Because XDP code runs before most of the Linux networking stack, you can do things like:
+
+  * Drop unwanted packets entirely in \~90 CPU cycles.
+  * Redirect packets between interfaces without copying.
+  * Do very fast per-packet lookups, metered by eBPF maps in shared memory.
+
+Linux exposes XDP via netdev (e.g. `ip link set dev eth0 xdp obj my_prog.o sec xdp`), and the runtime environment is in kernel.
+
+---
+
+## 2. eBPF for Windows
+
+Microsoft’s **eBPF for Windows** project ([https://github.com/microsoft/ebpf-for-windows](https://github.com/microsoft/ebpf-for-windows)) ports the eBPF VM/Verifier into Windows, exposes APIs to load eBPF bytecode, and lets you attach those programs to various hook points. In particular:
+
+1. **XDP-style “hook” on NDIS**
+
+   * The current eBPF for Windows stack includes a component called **XDP for Windows** (sometimes just abbreviated XDPW). It lets you load eBPF programs that run in the NDIS data path—roughly equivalent to Linux XDP.
+   * Under the hood, there’s an NDIS Lightweight Filter (LWF) driver (`netebpf_XDP.sys`) that installs very early in the Windows networking stack. When a packet arrives (or is about to be sent), the LWF invokes your eBPF program.
+   * You can do roughly the same things you do in Linux XDP: drop packets, forward them to another interface, or redirect them to user space via a perf/event ring.
+
+2. **How it’s packaged**
+
+   * The NuGet package `Microsoft.eBPF` (or the GitHub release) includes:
+
+     * An NDIS LWF driver (`netebpf_XDP.sys`) that implements the XDP hook.
+     * A user-mode library (`libebpf.dll`) that exposes functions like `ebpf_api_load_program()` and `ebpf_api_attach_xdp()`.
+     * A verifier that checks your eBPF bytecode (same ISA as Linux) before allowing it to run.
+   * You can build against the Windows eBPF SDK (headers + libs), compile your eBPF C code (via clang targeting `-target bpf`) into bytecode, then load it into the kernel.
+
+3. **APIs and workflow**
+
+   * In user mode, you call into `ebpf_api.h`. Typical sequence:
+
+     ```cpp
+     // 1) Initialize the eBPF subsystem:
+     ebpf_result_t result = ebpf_api_initiate();
+
+     // 2) Load your compiled .o (ELF) file, pick the "xdp" section:
+     const char* xdp_section = "xdp";
+     ebpf_handle_t program_handle = INVALID_HANDLE_VALUE;
+     result = ebpf_api_load_program(
+         reinterpret_cast<const uint8_t*>(bytecode_data),
+         bytecode_size,
+         EBPF_EXECUTION_JIT,    // or EBPF_EXECUTION_JITANDHOOK
+         EBPF_PROGRAM_TYPE_XDP,
+         xdp_section,
+         nullptr,               // no attach parameters yet
+         0,
+         &program_handle,
+         &log_buffer,
+         &log_size
+     );
+
+     // 3) Attach that program to a given interface (by ifIndex):
+     uint32_t if_index = 42; // e.g. GetIfTable entry
+     ebpf_handle_t link_handle = INVALID_HANDLE_VALUE;
+     result = ebpf_api_set_link_xdp(
+         if_index,
+         program_handle,
+         0,             // flags (0 or EBPF_XDP_FLAGS_SKB_MODE, etc.)
+         &link_handle
+     );
+     ```
+   * Once attached, every packet ingress on `if_index` executes your eBPF/XDP code. You can drop, pass, or redirect it to another interface (via eBPF helper calls like `bpf_redirect()`).
+   * To detach, call `ebpf_api_set_link_xdp(if_index, EBPF_LINK_XDP_DETACH, 0, &link_handle)`.
+
+4. **Current maturity**
+
+   * As of mid-2023, XDP on Windows is still marked as **“preview”** in the eBPF for Windows codebase. You need:
+
+     * Windows 11 or Windows Server 2022 (build 21392+) to have the underlying NDIS LWF driver model.
+     * The latest eBPF for Windows binaries installed (either via `choco install ebpf-for-windows` or from GitHub releases).
+   * Not all eBPF helper calls are implemented yet; the feature set is growing but not 100 % Linux-parity at the moment.
+   * You must run with admin privileges (or a service with the appropriate NDIS filter installation rights) so you can load an NDIS driver.
+
+---
+
+## 3. Key similarities/differences vs. Linux XDP
+
+| Aspect                     | Linux XDP                                                                                   | XDP for Windows (via eBPF for Windows)                                                                                                                     |
+| -------------------------- | ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Loader/Verifier**        | Linux kernel’s `ip link set xdp …` → in-kernel verifier                                     | User-mode `libebpf.dll` + kernel verifier in the eBPF LWF driver (`netebpf_XDP.sys`)                                                                       |
+| **Hook point**             | NIC→driver receive path (pre-netdev)                                                        | NDIS Lightweight Filter (NdisLwfAttach), just after NIC driver Rx                                                                                          |
+| **Program type**           | eBPF Type XDP (attach to `xdp` section)                                                     | eBPF Program Type XDP (windows uses the same BPF bytecode format)                                                                                          |
+| **Packet access**          | `struct xdp_md` gives raw `struct sk_buff`‐style data, can direct to user space via AF\_XDP | `ebpf_xdp_md` (similar layout), you get a `data` pointer + `data_end`. Redirects go via NDIS helper or to user AMT ring.                                   |
+| **Return actions**         | `XDP_ABORTED`, `XDP_DROP`, `XDP_PASS`, `XDP_REDIRECT`                                       | Equivalent macros `XDP_ABORTED`, `XDP_DROP`, `XDP_PASS`, `XDP_REDIRECT`. You call the same BPF‐helper IDs (e.g. `bpf_redirect_map()`).                     |
+| **Map types**              | eBPF maps (hash, array, per-CPU, perf event, XSK UMEM, etc.)                                | Many map types are supported, including `BPF_MAP_TYPE_HASH`, `BPF_MAP_TYPE_ARRAY`, `BPF_MAP_TYPE_XSKMAP`, `BPF_MAP_TYPE_RINGBUF` (for user-space packets). |
+| **User-space packet user** | AF\_XDP (libbpf) or `bpf_*` syscalls to pull packets via shared umem                        | XDPW includes a “user mode packet queue” helper. You attach a ring buffer to pull or redirect packets to user space.                                       |
+| **Driver install**         | Built in to recent kernels (no extra driver)                                                | You must install Microsoft’s `netebpf_XDP.sys` (NDIS LWF) via an INF or by the eBPF package installer.                                                     |
+| **Platform support**       | Linux 4.8+ (most distributions)                                                             | Windows 11 / Server 2022 (Insider builds/preview) + eBPF for Windows 0.\*/preview.                                                                         |
+
+---
+
+## 4. Typical development flow on Windows
+
+1. **Set up your build environment**
+
+   * Install Visual Studio (2019 or 2022) with the “Windows 10/11 SDK” components.
+   * Install the eBPF for Windows SDK (NuGet or MSI from GitHub) so you get `ebpf_api.h`, `libebpf.dll`, and associated headers/libs.
+
+2. **Write your eBPF C program** (e.g. `xdp_drop.c`):
+
+   ```c
+   #include "ebpf_windows.h"    // eBPF helper declarations for Windows
+   #include <bpf/bpf_helpers.h> // Linux-style BPF API if compatible
+
+   SEC("xdp")
+   int
+   xdp_drop_func(struct xdp_md* ctx)
+   {
+       // Always drop the packet
+       return XDP_DROP;
+   }
+
+   char _license[] SEC("license") = "GPL";
+   ```
+
+3. **Compile to BPF object**
+
+   ```powershell
+   clang -target bpf -O2 -g -c xdp_drop.c -o xdp_drop.o
+   ```
+
+4. **Load & attach from user‐mode C++**
+
+   ```cpp
+   #include <ebpf_api.h>
+   #include <windows.h>
+   #include <iostream>
+
+   int main()
+   {
+       // 1) Initialize eBPF for Windows
+       if (ebpf_api_initiate() != EBPF_SUCCESS) {
+           std::cerr << "ebpf_api_initiate failed\n";
+           return 1;
+       }
+
+       // 2) Read xdp_drop.o into memory
+       std::vector<uint8_t> bytecode = load_file("xdp_drop.o");
+
+       // 3) Load the program
+       ebpf_handle_t program_handle = INVALID_HANDLE_VALUE;
+       const char* section = "xdp";
+       void* log_buffer = nullptr;
+       uint32_t log_size = 0;
+       auto res = ebpf_api_load_program(
+           bytecode.data(),
+           bytecode.size(),
+           EBPF_EXECUTION_JIT,
+           EBPF_PROGRAM_TYPE_XDP,
+           section,
+           nullptr,
+           0,
+           &program_handle,
+           &log_buffer,
+           &log_size
+       );
+       if (res != EBPF_SUCCESS) {
+           std::cerr << "ebpf_api_load_program failed: " << res << "\n";
+           return 1;
+       }
+
+       // 4) Attach it to interface index 7 (adjust as needed)
+       uint32_t if_index = 7; 
+       ebpf_handle_t link_handle = INVALID_HANDLE_VALUE;
+       res = ebpf_api_set_link_xdp(if_index, program_handle, 0, &link_handle);
+       if (res != EBPF_SUCCESS) {
+           std::cerr << "ebpf_api_set_link_xdp failed: " << res << "\n";
+           return 1;
+       }
+
+       std::cout << "XDP program attached—dropping all packets on ifIndex " << if_index << "\n";
+       std::cout << "Press ENTER to detach and exit.\n";
+       std::cin.get();
+
+       // 5) Detach & cleanup
+       ebpf_api_set_link_xdp(if_index, EBPF_LINK_XDP_DETACH, 0, nullptr);
+       CloseHandle((HANDLE)program_handle);
+       ebpf_api_terminate();
+       return 0;
+   }
+   ```
+
+5. **Run as Administrator**
+
+   * Your EXE must run elevated so it can install the NDIS LWF filter.
+   * The filter driver `netebpf_XDP.sys` must be present and loaded by Windows (split from the sample eBPF repository).
+
+---
+
+## 5. Limitations & maturity
+
+* **Feature parity**
+
+  * Most core XDP features (drop, pass, redirect to another interface or user-space ring buffer) are implemented.
+  * Helper functions like `bpf_map_update_elem()`, `bpf_map_lookup_elem()`, etc., work similarly to Linux maps.
+  * Some advanced helpers (tail call, packet access beyond the first N bytes, complex map types) are still in progress.
+
+* **Performance vs. Linux**
+
+  * Early benchmarks show that Windows XDP can achieve sub-10 µs packet processing for trivial drops.
+  * Linux XDP still has a slight edge, because it’s baked directly into the netdev driver model. Windows eBPF/XDP lives in an NDIS LWF, which adds one extra layer. But it’s already orders of magnitude faster than a normal WFP (Windows Filtering Platform) callback or a user‐mode packet interceptor.
+
+* **Driver stack**
+
+  * The Windows XDP hook in early 2023 is shipped as an “optional feature” (you must enable “Network eBPF” in Windows Features).
+  * If you just build `ebpf-for-windows` from source, it drops an INF, `.sys`, and installation script into your output folder. You must run that installer once to register the NDIS filter.
+
+---
+
+## 6. Summary
+
+* **Native XDP** is Linux-only. There is no built-in XDP in older Windows.
+* **Microsoft’s eBPF for Windows** includes an **XDP for Windows** component (an NDIS Lightweight Filter driver) that lets you load eBPF programs to run just like XDP.
+* You write your XDP logic in C targeting the eBPF VM, compile to a `.o`, then use the user-mode `ebpf_api_` calls to load and attach it to a Windows interface.
+* Internally, that filter driver JITs the eBPF to native code and runs it at NDIS Rx time. You can drop, pass, or redirect packets before most of the Windows networking stack sees them.
+* It’s still in “preview” (Windows 11 / Server 2022 builds), but it already gives Linux XDP-like performance in user-land development style—no kernel driver expertise needed beyond enabling the eBPF feature.
+
+In short, Windows does not have Linux XDP “out of the box,” but **“XDP for Windows” via eBPF for Windows** fills nearly the same role: ultra-fast, programmable hooks at the NDIS layer. If you want to do Linux-style XDP packet processing on Windows, this is the API to explore.
+
 
 
