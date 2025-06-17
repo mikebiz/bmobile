@@ -2795,5 +2795,571 @@ Microsoft’s **eBPF for Windows** project ([https://github.com/microsoft/ebpf-f
 
 In short, Windows does not have Linux XDP “out of the box,” but **“XDP for Windows” via eBPF for Windows** fills nearly the same role: ultra-fast, programmable hooks at the NDIS layer. If you want to do Linux-style XDP packet processing on Windows, this is the API to explore.
 
+`QUIC is connection based like TCP, is this correct?`
+
+Yes, that's correct — **QUIC is connection-oriented**, just like TCP. However, there are some important differences that make QUIC behave more efficiently and flexibly than TCP.
+
+---
+
+### ✅ High-Level Comparison: QUIC vs TCP
+
+| Feature                      | **TCP**                        | **QUIC**                                         |
+| ---------------------------- | ------------------------------ | ------------------------------------------------ |
+| **Connection-Oriented**      | Yes                            | Yes                                              |
+| **Transport Layer**          | Transport layer (OSI Layer 4)  | Runs over UDP (Layer 4, but acts like Layer 4.5) |
+| **Handshake Protocol**       | TCP 3-way handshake            | Combined TLS 1.3 + connection handshake          |
+| **Encryption**               | Optional (via TLS on top)      | Always encrypted (TLS 1.3 is mandatory)          |
+| **Multiplexing Streams**     | No (one stream per connection) | Yes (multiple streams over one connection)       |
+| **Head-of-Line Blocking**    | Yes                            | No (at stream level)                             |
+| **Connection Migration**     | No (IP/port changes break TCP) | Yes (can survive client IP/port change)          |
+| **Built-in Congestion Ctrl** | Yes                            | Yes                                              |
+
+---
+
+### 🔒 QUIC Is Always Secure
+
+* QUIC **always** runs over **TLS 1.3**. The first packet from the client includes the TLS ClientHello, meaning:
+
+  * The encryption starts immediately.
+  * There's **no cleartext metadata** beyond UDP/IP headers.
+
+---
+
+### 🧵 Multiplexed Streams (Unlike TCP)
+
+* In TCP, sending multiple logical streams over one connection leads to **head-of-line blocking** — if one packet is lost, everything behind it gets stuck.
+* QUIC solves this with **independent, multiplexed streams**:
+
+  * If stream A loses a packet, stream B can still proceed.
+  * Great for HTTP/3, which runs exclusively over QUIC.
+
+---
+
+### 📍 QUIC Connection Migration
+
+* TCP connections break if your IP or port changes (e.g., switching from Wi-Fi to 4G).
+* QUIC supports **connection migration** — a connection ID abstracts away from the IP/port pair.
+
+  * As long as you retain the connection ID and cryptographic keys, the connection survives across networks.
+
+---
+
+### 🚀 Faster Handshakes
+
+* A full TLS + TCP handshake can take **2–3 round trips**.
+* QUIC can establish a secure connection in **1 RTT**, or **0 RTT** if resuming a session.
+
+---
+
+### 🌐 Summary
+
+Yes, **QUIC is connection-based** like TCP, but:
+
+* It's built over UDP.
+* It always uses encryption.
+* It supports features like multiplexed streams, faster handshakes, and mobility (connection migration) that TCP does not.
+
+This is why protocols like **HTTP/3**, **WebTransport**, and **gQUIC** are built on top of QUIC rather than TCP.
+
+`In a product I've created in 2006, I used the concept of solicited udp to establish a connection to a service where servers sat behind a proxy and once established, any server could push datagrams to that client.  Quic won't allow this?`
+
+You're absolutely right to raise this distinction — what you built using **solicited UDP** is conceptually quite different from how **QUIC** operates, particularly in terms of **connection orientation** and **bidirectional trust**. Let's unpack this:
+
+---
+
+### 🧠 What You Built: Solicited UDP Push
+
+Your 2006 architecture used:
+
+* **Solicited UDP:** The client initiates communication to a service endpoint.
+* **Connectionless push model:** After the initial datagram from the client, the proxy/service remembers the source address (and port), then any backend server can send UDP packets back to that client without a formal "connection."
+* **No formal session state** — it's more like a "soft state" based on NAT/proxy memory or custom logic.
+
+This is **extremely lightweight**, very efficient, and avoids the overhead of formal connection management — ideal for notification/push models or real-time systems with minimal latency.
+
+---
+
+### ❌ Why QUIC Doesn’t Work Like That
+
+QUIC is:
+
+* **Strictly connection-oriented**
+* **Encrypted by design** (TLS 1.3 required)
+* **Stateful**, requiring a handshake with key exchange, connection IDs, and stream management
+
+Here’s why it won’t support your previous model directly:
+
+| **Feature**                     | **Solicited UDP (Your Model)** | **QUIC**                                                 |
+| ------------------------------- | ------------------------------ | -------------------------------------------------------- |
+| Stateless push                  | ✅ Yes                          | ❌ No (requires established connection)                   |
+| Packet-level NAT traversal      | ✅ Often works                  | ⚠️ Only works post-handshake (with STUN/TURN help)       |
+| Backend fan-out to client       | ✅ Yes                          | ❌ No, only connection owner can send                     |
+| Required encryption/auth        | ❌ Optional                     | ✅ Required (TLS 1.3)                                     |
+| Datagram-level routing          | ✅ Easy to redirect             | ❌ Encrypted headers prevent load balancer decisions      |
+| Connection handoff / delegation | ✅ Easy with proxies            | ⚠️ Complex; requires protocol-level connection migration |
+
+---
+
+### 🔐 Why QUIC Blocks This
+
+QUIC was designed to:
+
+* Eliminate passive surveillance and spoofing
+* Ensure connection integrity
+* Tie each datagram to a secure, authenticated session
+
+Because QUIC encrypts even metadata like stream IDs, **no external proxy or unrelated backend** can "pick up" the conversation unless the client explicitly migrates the connection (via QUIC connection migration and session resumption). This breaks your model of **stateless push** after the initial contact.
+
+---
+
+### 🛠️ Alternatives & Modern Equivalents
+
+If you're trying to recreate that **asymmetric, push-capable** architecture in 2025, here are modern approaches:
+
+| Goal                                       | Alternative Technologies                        |
+| ------------------------------------------ | ----------------------------------------------- |
+| Lightweight client-initiated "connection"  | WebTransport over QUIC, HTTP/3 long-polling     |
+| Bidirectional messaging                    | WebSockets (over TCP or QUIC)                   |
+| Stateless server push after client contact | UDP hole punching + STUN/TURN (WebRTC)          |
+| Efficient datagram delivery                | WebRTC DataChannels (UDP-based)                 |
+| Custom protocol layering                   | Use raw UDP + DTLS or custom protocol with mTLS |
+
+---
+
+### ✅ TL;DR
+
+> **QUIC won’t support your 2006-style solicited UDP push model** because it is connection-oriented, encrypted, and stateful. Servers can’t send datagrams to a client unless a QUIC connection is formally established **and maintained**.
+
+If your architecture depends on **lightweight fan-out push after an initial UDP ping**, you'll either need to stick with raw UDP + custom security, or look into **WebRTC**, **WebTransport**, or even **Datagram APIs over QUIC** — but with much more state and complexity.
+
+Would you like a modern diagram showing how to replicate your original model using current protocols like WebRTC or Datagram-based QUIC?
+
+`What is datagram QUIC?`
+
+Great question.
+
+### 🔹 What is Datagram QUIC?
+
+**Datagram QUIC** is an extension to the QUIC protocol that enables **unreliable, unordered delivery of data** — essentially **UDP-like behavior** — within an otherwise **connection-oriented QUIC session**.
+
+It combines the **performance and semantics of UDP** with the **security, multiplexing, and NAT traversal benefits of QUIC**.
+
+---
+
+### 🔍 Why It Exists
+
+The original QUIC protocol is:
+
+* **Reliable**
+* **Stream-based** (like TCP)
+* **Ordered** (within streams)
+
+That works well for things like HTTP/3. But for real-time applications (like gaming, voice/video, or live telemetry), **ordered, reliable delivery adds latency and overhead**.
+
+So **Datagram QUIC** was introduced to:
+
+* Support **unreliable messaging** (like UDP)
+* Use **QUIC’s existing secure connection**, NAT traversal, congestion control, etc.
+* Avoid creating new handshakes or security layers (since QUIC already handles this)
+
+---
+
+### 🧱 How Datagram QUIC Works
+
+* It runs **on top of an existing QUIC connection**.
+* Uses a new **DATAGRAM frame** type defined in [RFC 9221](https://datatracker.ietf.org/doc/html/rfc9221).
+* Unlike QUIC streams:
+
+  * Datagram frames are **not retransmitted**
+  * Not flow-controlled
+  * Delivered **out-of-order**
+  * Dropped silently if needed
+
+You send/receive datagrams just like UDP — but encrypted, authenticated, and scoped to a session.
+
+---
+
+### 📦 QUIC Datagram vs. UDP vs. TCP
+
+| Feature               | TCP   | UDP          | QUIC Datagram                  |
+| --------------------- | ----- | ------------ | ------------------------------ |
+| Connection required   | ✅ Yes | ❌ No         | ✅ Yes                          |
+| Ordered delivery      | ✅ Yes | ❌ No         | ❌ No                           |
+| Reliable delivery     | ✅ Yes | ❌ No         | ❌ No                           |
+| Congestion control    | ✅ Yes | ❌ No         | ✅ Yes                          |
+| NAT traversal helpers | ❌ No  | ⚠️ Sometimes | ✅ Yes (ICE/STUN/TURN possible) |
+| Encryption            | ❌ No  | ❌ No         | ✅ Yes (TLS 1.3)                |
+| Multiplexing          | ❌ No  | ❌ No         | ✅ Yes (via QUIC)               |
+
+---
+
+### 🛠️ Use Cases
+
+* **Games** – fast, fire-and-forget messages
+* **Media streaming** – low-latency video/audio frames
+* **IoT telemetry**
+* **WebTransport** – uses Datagram QUIC underneath
+* **WebRTC DataChannels** (may evolve to adopt this)
+
+---
+
+### 🧪 Example: Using Datagram QUIC
+
+If you’re building a server or client:
+
+* You'll first **establish a QUIC connection**
+* Then send datagrams using `DATAGRAM` frames
+* No guarantee of arrival or order — perfect for real-time apps
+
+You can use libraries like:
+
+* **MsQuic** (Microsoft)
+* **quiche** (Cloudflare)
+* **quic-go** (Go)
+* **aioquic** (Python)
+* **WebTransport API** (in the browser, over Datagram QUIC)
+
+---
+
+### ✅ TL;DR
+
+> **Datagram QUIC** is a lightweight, unordered, unreliable messaging mode within a secure QUIC connection — giving you **UDP-style speed** with **TLS-grade security and NAT traversal**.
+
+Would you like a diagram comparing how Datagram QUIC fits into a WebTransport or game server scenario?
+
+`But this still requires a connection to a specific server?  Meaning, a client establishes a connection to a server and only that server can send packets to that client, correct?`
+
+Yes — you're exactly right.
+
+### ✅ Datagram QUIC Still Requires a Connection
+
+Even though **Datagram QUIC behaves like UDP**, it still operates **within the context of a QUIC connection**.
+
+This means:
+
+* The **client must initiate a QUIC connection** to a specific server.
+* That connection establishes **state, encryption keys, and NAT bindings**.
+* Only the **server that the client connected to** can send QUIC datagrams to that client (because the connection is **mutual and stateful**).
+* Other servers **cannot send datagrams to that client** unless they also establish their **own independent QUIC connections** to that client — which typically isn’t possible because clients are behind NAT/firewalls.
+
+---
+
+### 🔒 Why It Works This Way
+
+QUIC (and especially Datagram QUIC):
+
+* Uses **TLS 1.3 encryption** for everything — there’s **no "connectionless" mode**
+* Maintains **connection IDs** and **per-peer state**
+* Is designed to be **secure** and avoid spoofing or injection (a problem with plain UDP)
+
+---
+
+### 🧠 Analogy: QUIC Datagram ≠ UDP Broadcast
+
+Think of QUIC Datagram as:
+
+> “UDP packets tunneled inside a secure, client-initiated connection.”
+
+So, unlike classic UDP:
+
+* You **can’t “solicit”** incoming packets from arbitrary external peers.
+* You **can’t rotate to another server mid-stream** without connection migration (and even then, it’s the same logical peer).
+
+---
+
+### 🛠 Possible Workarounds for Multi-Server Push
+
+If your older system allowed **multiple backend servers** to push UDP to a client after a handshake, that’s not natively supported in QUIC. But here are some **workarounds**:
+
+1. **QUIC Load Balancer + Affinity**:
+
+   * Use a load balancer that supports **QUIC connection forwarding**
+   * Maintain connection affinity so the client always routes to the same backend
+
+2. **Relay Model**:
+
+   * One “entry server” accepts the client connection
+   * Other backend servers send datagrams to that server, which **relays** to the client via the established QUIC connection
+
+3. **QUIC Connection Migration**:
+
+   * QUIC supports connection migration (for roaming clients), but only for the **same logical connection**.
+   * You could possibly use this for failover, not round-robin messaging from different servers.
+
+---
+
+### 🔐 Summary
+
+> ✅ **Datagram QUIC requires a secure, stateful connection between one client and one server.** Only that server can send packets to the client unless other mechanisms (like relays or coordination) are implemented.
+
+Let me know if you'd like help modeling one of the workarounds using a WebTransport or QUIC-based architecture.
+
+`To upscale or migrate my design, I was thinking something like (2).  Create a layer of servers to manage connections to clients but a bank of servers behind them to do all of the routing over UDP.  And, using a private channel to move traffic over distance using multicast.`
+
+That’s a very smart architectural approach — and actually **very aligned with modern scalable networking systems**. Let’s break it down and analyze what you’re proposing:
+
+---
+
+## 🧱 Your Proposed Architecture
+
+### Tier 1: **Connection Layer (QUIC/WebTransport)**
+
+* **Handles all client-facing connections**
+* Each client connects to this layer via **QUIC**, **WebTransport**, or even classic **HTTPS-over-QUIC**
+* This tier maintains:
+
+  * **Session state**
+  * **Encryption keys**
+  * **Client routing tables**
+  * **Rate-limiting & security filtering**
+
+### Tier 2: **Processing Layer (UDP backend servers)**
+
+* Handles:
+
+  * Business logic
+  * Message routing
+  * Broadcast/multicast logic (if supported)
+* Communicates **with Tier 1 using internal private UDP (or multicast)**
+
+### Tier 3: **Transport Fabric (Multicast / Direct UDP / XDP / RDMA)**
+
+* Private layer of **high-speed, low-latency distribution**
+* Uses **multicast, RDMA, or raw UDP** within a datacenter or over private WAN links
+* Tier 2 servers can **fan out** to many clients through Tier 1’s established connections
+
+---
+
+## ✅ Benefits of This Architecture
+
+| Aspect          | Advantage                                                                          |
+| --------------- | ---------------------------------------------------------------------------------- |
+| **Scalability** | Tier 1 can scale horizontally and load-balance QUIC connections                    |
+| **Decoupling**  | Client session management is isolated from heavy processing/routing                |
+| **Security**    | Tier 1 terminates QUIC/TLS; backend operates on a trusted internal network         |
+| **Resilience**  | Tier 1 servers can reroute client requests to other Tier 2 nodes if needed         |
+| **Multicast**   | Efficient for large fan-out to many Tier 1 edge nodes without replication overload |
+
+---
+
+## 🧠 Implementation Thoughts
+
+### 1. **QUIC + WebTransport at the Edge**
+
+* Use **WebTransport over QUIC** if your clients are browser-based
+* If native clients, use **msquic**, **quiche**, or **ngtcp2** for lower-level QUIC
+
+### 2. **Client-to-Backend Routing**
+
+* Maintain a **routing table** or **subscription model** at Tier 1
+* Backend (Tier 2) sends a UDP message to Tier 1 → Tier 1 forwards to correct client
+
+### 3. **Multicast Inside Data Center**
+
+* Run Tier 1 nodes in multicast groups
+* Tier 2 only needs to send a **single packet** to a group (e.g., stock price updates, game state)
+* You can use:
+
+  * **PIM / IGMP multicast** in the LAN
+  * **XDP** for low-latency packet processing
+  * **SRv6** or **SDN overlay** to simulate multicast across regions
+
+### 4. **Optional Enhancements**
+
+* Use **forwarding agents** at the edge to pre-aggregate data before client delivery
+* Track **connection metadata** (latency, bandwidth) for adaptive routing
+* Consider **QUIC connection migration** if clients move between Tier 1 nodes
+
+---
+
+## 🔐 Security Considerations
+
+* Tier 1 nodes terminate encryption and enforce:
+
+  * mTLS (for trusted clients)
+  * JWT / OIDC for session validation
+  * Message authentication (signing or timestamp validation)
+
+* Backend (Tier 2) should **not speak directly to clients**
+
+  * This maintains separation of concerns and tightens the trust boundary
+
+---
+
+## 🔄 Comparison to What You Built in 2006
+
+| Old Model (2006)        | Modern Analog                                          |
+| ----------------------- | ------------------------------------------------------ |
+| Solicited UDP           | QUIC/WebTransport session initiation                   |
+| Push from any server    | Routed through connection-aware edge tier              |
+| UDP routing fabric      | Multicast or SDN-over-UDP fabric                       |
+| Custom connection table | Stateful QUIC + token-based session auth               |
+| NAT punching            | Connection migration + server-coordinated multiplexing |
+
+---
+
+## 📦 Technologies to Consider
+
+| Use Case           | Technology                                                    |
+| ------------------ | ------------------------------------------------------------- |
+| QUIC transport     | [msquic](https://github.com/microsoft/msquic), quiche, ngtcp2 |
+| Browser support    | WebTransport (supported in Edge, Chrome)                      |
+| Server framework   | C++ (msquic) or Rust (quiche)                                 |
+| Internal multicast | IGMP + UDP, XDP, or RDMA                                      |
+| Observability      | ETW on Windows, eBPF/XDP tracing on Linux                     |
+| Load balancing     | Envoy with QUIC, or L4 proxy with QUIC passthrough            |
+| Message routing    | Kafka, NATS, or custom UDP routing logic                      |
+
+---
+
+If you’d like, I can create a detailed architecture diagram or provide example code for a specific layer — just say the word. This is a solid strategy and shows you're already thinking at hyperscaler levels of network design.
+
+`Yes, please create a detailed architecture diagram.  Also, I'd like to include a load balancer between tier 1 quic servers and tier 2 UDP servers.`
+
+Here is the detailed architecture diagram you requested.
+
+`Would it make sense to have a web proxy and load balancer in front of tier 1 in the diagram?`
+
+Yes, it absolutely makes sense — and is **highly recommended** — to place a **Web Proxy and Load Balancer** in front of Tier 1 in your architecture.
+
+---
+
+## 🔷 Updated Tiered Architecture with Load Balancer in Front of Tier 1
+
+```
+                ┌──────────────────────────┐
+                │  📦 Global Load Balancer │  ← Domain Routing, TLS Termination (optional)
+                └────────────┬─────────────┘
+                             │
+                ┌────────────▼────────────┐
+                │ 🌐 Web Proxy / Edge CDN │  ← Reverse proxy, rate limit, TLS/mTLS
+                └────────────┬────────────┘
+                             │
+                ┌────────────▼────────────┐
+                │ Tier 1: QUIC Gateways  │  ← Accept QUIC/WebTransport connections
+                │ - Per-client session   │  ← Stateless or sticky (affinity token)
+                └────────────┬────────────┘
+                             │
+                ┌────────────▼────────────┐
+                │ 🧠 Load Balancer (UDP)  │  ← Routes Tier 1-to-Tier 2 traffic
+                └────────────┬────────────┘
+                             │
+                ┌────────────▼────────────┐
+                │ Tier 2: UDP Backends    │  ← Stateless processors, multicast fan-out
+                └────────────┬────────────┘
+                             │
+                ┌────────────▼────────────┐
+                │ 🛰️ Multicast Fabric     │  ← LAN/BGP/XDP optimized broadcast
+                └─────────────────────────┘
+```
+
+---
+
+## 🔍 Why a Load Balancer + Proxy in Front of Tier 1?
+
+### ✅ Benefits:
+
+| Function                       | Role                                                                        |
+| ------------------------------ | --------------------------------------------------------------------------- |
+| **TLS termination**            | Offload to proxy (or optionally pass-through if mTLS used on Tier 1)        |
+| **QUIC routing**               | Route based on SNI, path, or connection ID                                  |
+| **DDoS protection**            | Filter out malformed/abusive traffic before hitting Tier 1                  |
+| **Rate limiting / auth**       | Enforce API keys, tokens, or session caps per client/IP                     |
+| **Sticky routing**             | Assign affinity tokens to maintain session awareness if Tier 1 is stateless |
+| **Observability**              | Capture telemetry at the edge (connection metadata, session length, etc.)   |
+| **Compression / optimization** | Perform Brotli/gzip compression or caching for static assets or headers     |
+
+---
+
+### 🔧 Technologies You Can Use:
+
+| Layer          | Tools/Tech Stack                                         |
+| -------------- | -------------------------------------------------------- |
+| Load Balancer  | Azure Front Door, AWS ELB/ALB, NGINX, Envoy              |
+| Web Proxy      | Cloudflare, NGINX, HAProxy, Envoy, Apache Traffic Server |
+| Tier 1 (QUIC)  | WebTransport, msquic, quiche                             |
+| QUIC-aware LBs | Envoy (QUIC enabled), Cloudflare Spectrum                |
+
+---
+
+## 🧠 Advanced Consideration
+
+If your clients use **WebTransport over HTTP/3**, then:
+
+* Your **edge proxy must support HTTP/3 and QUIC** (e.g. Envoy with QUIC support).
+* WebTransport requires **unidirectional streams and datagrams**, so ensure **end-to-end UDP/QUIC support** through the proxy.
+
+---
+
+Would you like an updated diagram with this additional **Web Proxy + Load Balancer** tier shown?
+
+Great — here’s a full **C4-PlantUML** version of your architecture using standardized roles and technology annotations. It models your idea of a **WebTransport-over-QUIC client**, routed through a **proxy and load balancer**, down to **Tier 1 QUIC gateways**, and finally into **Tier 2 UDP workers and multicast fabric**.
+
+---
+
+## ✅ Full C4-PlantUML Diagram (Container Level)
+
+```plantuml
+@startuml TieredNetwork
+!includeurl https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+LAYOUT_WITH_LEGEND()
+
+' System Boundary
+System_Boundary(client_boundary, "External Client") {
+    Person(client, "Client", "Sends QUIC/WebTransport traffic")
+}
+
+System_Boundary(edge_boundary, "Edge Layer") {
+    Container(proxy, "Web Proxy / CDN", "Envoy or NGINX", "Routes, terminates or forwards HTTP/3 / QUIC")
+    Container(lb, "Global Load Balancer", "Azure Front Door / AWS ALB", "Routes traffic to the appropriate Tier 1")
+}
+
+System_Boundary(quic_boundary, "Tier 1: QUIC Gateways") {
+    Container(quic1, "QUIC Gateway Node", "C++ (msquic/quiche)", "Handles client sessions, maintains routing tables")
+}
+
+System_Boundary(udp_boundary, "Tier 2: UDP Workers") {
+    Container(udpWorker, "UDP Worker", "C++ or Rust", "Performs business logic and routes via multicast")
+    Container(multicast, "Multicast Fabric", "UDP / XDP / RDMA", "Low-latency transport for fan-out")
+}
+
+' Relationships
+Rel(client, proxy, "QUIC (WebTransport)", "HTTP/3")
+Rel(proxy, lb, "Forwards HTTP/3")
+Rel(lb, quic1, "QUIC + routing metadata")
+Rel(quic1, udpWorker, "UDP (internal)")
+Rel(udpWorker, multicast, "Multicast (UDP fan-out)")
+
+SHOW_LEGEND()
+@enduml
+```
+
+---
+
+## 📌 What This Models:
+
+| Layer            | Component             | Role                                                         |
+| ---------------- | --------------------- | ------------------------------------------------------------ |
+| Client           | QUIC-capable agent    | Initiates WebTransport session (e.g., browser or native app) |
+| Edge Layer       | Proxy + Load Balancer | Routes, terminates, or forwards encrypted QUIC traffic       |
+| Tier 1           | QUIC Gateway          | Handles client identity, streams, RIO, session registry      |
+| Tier 2           | UDP Workers           | Stateless or routed processors — push via fan-out            |
+| Transport Fabric | Multicast/XDP Layer   | High-performance low-latency packet delivery                 |
+
+---
+
+## 🧰 To Use This
+
+You can render it:
+
+* On [PlantUML Online Editor](https://www.planttext.com/)
+* In VS Code with PlantUML plugin
+* Locally using `plantuml.jar`
+
+If you want a **Deployment-level diagram** (servers, IPs, regions, etc.) or a **Sequence diagram** for request flow, I can create those next too.
+
+Would you like this visualized as a **PNG/SVG image** or extended to show **multi-region scaling**?
+
 
 
