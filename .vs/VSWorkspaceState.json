@@ -1,13 +1,7 @@
 {
   "ExpandedNodes": [
-    "",
-    "\\docs",
-    "\\src",
-    "\\src\\bmobileUtil",
-    "\\src\\bmobileUtil\\docs",
-    "\\src\\packages",
-    "\\src\\tests\\bmobileUtilTests"
+    ""
   ],
-  "SelectedNode": "\\src\\bmobileUtil\\docs\\Heap2.md",
+  "SelectedNode": "\\bmobile.sln",
   "PreviewInSolutionExplorer": false
 }
