@@ -1,7 +1,9 @@
 {
   "ExpandedNodes": [
-    ""
+    "",
+    "\\docs",
+    "\\src"
   ],
-  "SelectedNode": "\\bmobile.sln",
+  "SelectedNode": "\\docs\\miscellaneous-ramblings.md",
   "PreviewInSolutionExplorer": false
 }
